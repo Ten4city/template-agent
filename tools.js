@@ -828,8 +828,8 @@ export const toolDefinitions = [
           description: "Direct text"
         },
         level: {
-          type: "number",
-          enum: [1, 2, 3, 4, 5, 6],
+          type: "string",
+          enum: ["1", "2", "3", "4", "5", "6"],
           description: "Heading level (h1-h6)"
         },
         align: {
@@ -903,8 +903,8 @@ export const toolDefinitions = [
           description: "Custom marker text if marker is 'custom'"
         },
         indent: {
-          type: "number",
-          enum: [0, 1, 2],
+          type: "string",
+          enum: ["0", "1", "2"],
           description: "Indentation level"
         },
         markerWidth: {

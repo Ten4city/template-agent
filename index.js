@@ -39,7 +39,7 @@ export async function processDocument(docxPath, options = {}) {
   const {
     outputDir,
     verbose = true,
-    model = "claude-sonnet-4-20250514",
+    model, // Let agent.js handle provider-specific defaults
     pageLimit // Process only first N pages (for testing)
   } = options;
 
@@ -149,7 +149,7 @@ ${result.html}
  * @param {Object} options - Processing options
  */
 export async function processImage(imagePath, textBlocks = [], options = {}) {
-  const { verbose = true, model = "claude-sonnet-4-20250514" } = options;
+  const { verbose = true, model } = options;
 
   if (verbose) console.log(`\n🖼️ Processing image: ${path.basename(imagePath)}\n`);
 

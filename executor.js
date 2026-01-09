@@ -590,7 +590,8 @@ export class ToolExecutor {
   }
 
   insert_heading(input) {
-    const { block_index, text, level, align } = input;
+    const { block_index, text, align } = input;
+    const level = parseInt(input.level) || 1;
 
     let content = "";
     if (block_index !== undefined) {
@@ -642,7 +643,8 @@ export class ToolExecutor {
   }
 
   insert_list_item(input) {
-    const { block_index, text, marker, customMarker, indent = 0, markerWidth = "5%", spacerWidth = "3%" } = input;
+    const { block_index, text, marker, customMarker, markerWidth = "5%", spacerWidth = "3%" } = input;
+    const indent = parseInt(input.indent) || 0;
 
     let content = "";
     if (block_index !== undefined) {
