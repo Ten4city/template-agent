@@ -1081,6 +1081,30 @@ export const toolDefinitions = [
     }
   },
   {
+    name: "check_image",
+    description: "Re-examine the document image to identify remaining sections not yet processed. Call this before finish_page() to ensure complete coverage. List all visible sections you can see and mark which ones you've completed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        completed_sections: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of section names/headers you have already processed"
+        },
+        remaining_sections: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of section names/headers still visible in the image that need processing"
+        },
+        ready_to_finish: {
+          type: "boolean",
+          description: "Set to true only if remaining_sections is empty"
+        }
+      },
+      required: ["completed_sections", "remaining_sections", "ready_to_finish"]
+    }
+  },
+  {
     name: "finish_page",
     description: "Signal completion of current page. Report any continuing structures.",
     input_schema: {
@@ -1307,8 +1331,8 @@ export const toolSummary = {
   list: ["insert_list", "insert_list_item"],
   formatting: ["insert_horizontal_line", "insert_spacing", "insert_special_char"],
   image: ["insert_image_base64", "insert_image_placeholder"],
-  navigation: ["think", "validate_output", "finish_page"],
+  navigation: ["think", "validate_output", "check_image", "finish_page"],
   inspection: ["get_table_state", "get_output_preview"],
   composite: ["create_form_row", "create_data_table", "create_signature_block"],
-  total: 41
+  total: 42
 };

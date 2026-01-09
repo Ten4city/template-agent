@@ -796,6 +796,36 @@ export class ToolExecutor {
     };
   }
 
+  check_image(input) {
+    const { completed_sections, remaining_sections, ready_to_finish } = input;
+
+    // This is a checkpoint tool - the LLM reports what it sees
+    // We validate and provide guidance
+    if (remaining_sections.length > 0 && ready_to_finish) {
+      return {
+        warning: "You marked ready_to_finish=true but listed remaining sections. Process those sections first.",
+        completed_sections,
+        remaining_sections,
+        action: "Continue processing remaining sections before calling finish_page()"
+      };
+    }
+
+    if (remaining_sections.length === 0 && ready_to_finish) {
+      return {
+        success: true,
+        message: "All sections covered. You may now call finish_page().",
+        completed_sections
+      };
+    }
+
+    return {
+      acknowledged: true,
+      completed_sections,
+      remaining_sections,
+      action: `Process ${remaining_sections.length} remaining section(s): ${remaining_sections.join(", ")}`
+    };
+  }
+
   finish_page(input) {
     const { continuing_structure = "none", open_tags = [], notes } = input;
 

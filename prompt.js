@@ -78,6 +78,7 @@ These create HTML form elements:
 | think(reasoning) | Express your reasoning before complex operations |
 | get_table_state(table_id) | See current state of a table |
 | get_output_preview() | See what HTML you've generated so far |
+| check_image() | **REQUIRED before finish_page()** - Re-examine image, list completed/remaining sections |
 | finish_page() | Signal completion, renders all tables to final HTML |
 
 ## THINKING ABOUT STRUCTURE
@@ -293,6 +294,50 @@ set_rowspan(table_id, start_row, photo_col, num_rows)
 const photo = insert_image_upload({name: "Applicant Photo", width: 120, height: 150})
 set_cell_content(table_id, start_row, photo_col, html: photo.html + "<br>Paste photo here")
 \`\`\`
+
+## CRITICAL RULES (MUST FOLLOW)
+
+These are non-negotiable requirements:
+
+### 1. Table Width = 100% (MANDATORY)
+Every table you create MUST have width="100%". No exceptions.
+\`\`\`
+create_table({rows: N, cols: M, width: "100%", ...})  // ALWAYS "100%"
+\`\`\`
+
+### 2. Use Percentages for All Widths
+All cell widths must be percentages that sum to ~100% across a row:
+\`\`\`
+set_cell_width(table_id, row, 0, "15%")   // Label
+set_cell_width(table_id, row, 1, "35%")   // Field
+set_cell_width(table_id, row, 2, "15%")   // Label
+set_cell_width(table_id, row, 3, "35%")   // Field = 100%
+\`\`\`
+Never use pixel widths (px) or fixed values.
+
+### 3. Complete the ENTIRE Page Before Finishing
+**DO NOT call finish_page() until you have processed ALL visible sections in the image.**
+
+Before finishing, you MUST:
+1. Call check_image() to list all sections you see in the image
+2. Verify every section is in your "completed" list
+3. If any sections remain in "remaining", process them first
+4. Only then call finish_page()
+
+Scan the image from TOP to BOTTOM. Common sections you might miss:
+- Header/title at the very top
+- Footer notes or disclaimers
+- Signature sections
+- Declaration/consent sections
+- Nominee/appointee details
+- Terms and conditions
+
+### 4. Keep Referring to the Image
+The image is your source of truth. Periodically:
+- Re-examine the image to see what you've covered
+- Look for sections you might have missed
+- Check if your layout matches the visual structure
+- Use think() to note which part of the image you're working on
 
 ## FINAL NOTES
 
