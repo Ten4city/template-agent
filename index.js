@@ -10,6 +10,20 @@
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// Load .env file
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.join(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const [key, ...valueParts] = line.split("=");
+    if (key && valueParts.length > 0) {
+      process.env[key.trim()] = valueParts.join("=").trim();
+    }
+  }
+}
 import { renderDocxToImages } from "./render.js";
 import { extractTextBlocks, formatBlocksForDisplay } from "./extraction.js";
 import { runAgent, runAgentMultiPage } from "./agent.js";
