@@ -29,7 +29,7 @@ export function renderDocumentStructure(documentStructure, textBlocksByPage = []
  */
 function renderPage(page, blockMap) {
   const elementsHtml = page.elements
-    .map((element) => renderElement(element, blockMap))
+    .map((element, elementIndex) => renderElement(element, blockMap, elementIndex))
     .join('\n');
 
   return `<!-- Page ${page.pageNumber} -->
@@ -41,14 +41,14 @@ ${elementsHtml}
 /**
  * Render a single element
  */
-function renderElement(element, blockMap) {
+function renderElement(element, blockMap, elementIndex) {
   switch (element.type) {
     case 'header':
-      return renderHeader(element);
+      return renderHeader(element, elementIndex);
     case 'table':
-      return renderTable(element);
+      return renderTable(element, elementIndex);
     case 'paragraph':
-      return renderParagraph(element, blockMap);
+      return renderParagraph(element, blockMap, elementIndex);
     default:
       return `<!-- Unknown element type: ${element.type} -->`;
   }
@@ -57,30 +57,69 @@ function renderElement(element, blockMap) {
 /**
  * Render a header element
  */
-function renderHeader(element) {
-  const style = getHeaderStyle(element.style);
+function renderHeader(element, elementIndex) {
+  const style = getHeaderStyle(element);
   const text = escapeHtml(element.text || '');
 
-  return `<div class="section-header" style="${style}">${text}</div>`;
+  return `<div class="section-header selectable" data-element-index="${elementIndex}" data-element-type="header" style="${style}">${text}</div>`;
 }
 
 /**
- * Get CSS style for header based on style hint
+ * Get CSS style for header based on style hint or custom style object
  */
-function getHeaderStyle(styleHint) {
-  const baseStyle = 'padding: 8px 12px; font-weight: bold; font-size: 12px; margin: 8px 0 4px 0;';
+function getHeaderStyle(element) {
+  const styleHint = element.style;
+  const customStyle = element.customStyle || {};
 
+  // Base styles (can be overridden)
+  let baseStyles = {
+    padding: '8px 12px',
+    fontWeight: 'bold',
+    fontSize: '12px',
+    marginTop: '8px',
+    marginBottom: '4px',
+  };
+
+  // Apply preset style
+  let presetStyles = {};
   switch (styleHint) {
     case 'blue':
-      return `${baseStyle} background-color: #1a5276; color: white;`;
+      presetStyles = { backgroundColor: '#1a5276', color: 'white' };
+      break;
     case 'gray':
     case 'grey':
-      return `${baseStyle} background-color: #e0e0e0; color: black;`;
+      presetStyles = { backgroundColor: '#e0e0e0', color: 'black' };
+      break;
     case 'bold':
-      return `${baseStyle} background-color: transparent; color: black; border-bottom: 1px solid #000;`;
+      presetStyles = { backgroundColor: 'transparent', color: 'black', borderBottom: '1px solid #000' };
+      break;
     default:
-      return `${baseStyle} background-color: #f0f0f0; color: black;`;
+      presetStyles = { backgroundColor: '#f0f0f0', color: 'black' };
   }
+
+  // Merge: base -> preset -> custom (custom wins)
+  const finalStyles = { ...baseStyles, ...presetStyles, ...customStyle };
+
+  return buildStyleString(finalStyles);
+}
+
+/**
+ * Build CSS style string from style object
+ */
+function buildStyleString(styleObj) {
+  if (!styleObj) return '';
+
+  return Object.entries(styleObj)
+    .filter(([_, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `${camelToKebab(key)}: ${value}`)
+    .join('; ');
+}
+
+/**
+ * Convert camelCase to kebab-case
+ */
+function camelToKebab(str) {
+  return str.replace(/([A-Z])/g, '-$1').toLowerCase();
 }
 
 /**
@@ -139,31 +178,36 @@ function validateAndFixTable(element) {
 
 /**
  * Render a single cell
+ * @param {*} cell - Cell content (string, object, or null)
+ * @param {boolean} bordered - Whether to render with borders
+ * @param {number} elementIndex - Parent table's element index
+ * @param {number} rowIndex - Row index
+ * @param {number} colIndex - Column index
  */
-function renderCell(cell) {
+function renderCell(cell, bordered = false, elementIndex = 0, rowIndex = 0, colIndex = 0) {
   // null = skip this cell (covered by rowspan from above)
   if (cell === null) {
     return '';
   }
 
+  // Data attributes for selection
+  const dataAttrs = `class="selectable-cell" data-row="${rowIndex}" data-col="${colIndex}"`;
+
   // String cell - simple content
   if (typeof cell === 'string') {
+    const baseStyle = bordered
+      ? { border: '1px solid #000', verticalAlign: 'top' }
+      : { verticalAlign: 'top' };
     const displayValue = escapeHtml(cell).replace(/\n/g, '<br>');
-    const isEmpty = cell.trim() === '';
-    const cellStyle = isEmpty
-      ? 'border: 1px solid #000; padding: 4px 6px; min-width: 80px; background-color: #fafafa;'
-      : 'border: 1px solid #000; padding: 4px 6px;';
-
-    return `<td style="${cellStyle}">${displayValue}</td>`;
+    return `<td ${dataAttrs} style="${buildStyleString(baseStyle)}">${displayValue}</td>`;
   }
 
-  // Object cell - may have rowspan/colspan
+  // Object cell - may have rowspan/colspan and custom styles
   if (typeof cell === 'object' && cell !== null) {
     const text = cell.text || '';
     const displayValue = escapeHtml(text).replace(/\n/g, '<br>');
-    const isEmpty = text.trim() === '';
 
-    const attrs = [];
+    const attrs = [dataAttrs];
     if (cell.rowspan && cell.rowspan > 1) {
       attrs.push(`rowspan="${cell.rowspan}"`);
     }
@@ -171,37 +215,100 @@ function renderCell(cell) {
       attrs.push(`colspan="${cell.colspan}"`);
     }
 
-    const attrStr = attrs.length > 0 ? ' ' + attrs.join(' ') : '';
-    const cellStyle = isEmpty
-      ? 'border: 1px solid #000; padding: 4px 6px; min-width: 80px; background-color: #fafafa;'
-      : 'border: 1px solid #000; padding: 4px 6px;';
+    // Build cell style: base + borders (if table is bordered) + custom cell styles
+    const baseStyle = { verticalAlign: 'top' };
 
-    return `<td${attrStr} style="${cellStyle}">${displayValue}</td>`;
+    // Table-level borders
+    if (bordered) {
+      baseStyle.border = '1px solid #000';
+    }
+
+    // Cell-level custom styles
+    const customStyle = {};
+    if (cell.backgroundColor) {
+      customStyle.backgroundColor = cell.backgroundColor;
+    }
+    if (cell.width) {
+      customStyle.width = cell.width;
+    }
+    if (cell.textAlign) {
+      customStyle.textAlign = cell.textAlign;
+    }
+    if (cell.verticalAlign) {
+      customStyle.verticalAlign = cell.verticalAlign;
+    }
+    if (cell.padding) {
+      customStyle.padding = cell.padding;
+    }
+
+    // Cell-level border overrides (per-side)
+    if (cell.borderTop) customStyle.borderTop = cell.borderTop;
+    if (cell.borderBottom) customStyle.borderBottom = cell.borderBottom;
+    if (cell.borderLeft) customStyle.borderLeft = cell.borderLeft;
+    if (cell.borderRight) customStyle.borderRight = cell.borderRight;
+    // Full border override
+    if (cell.border) customStyle.border = cell.border;
+
+    // Text formatting
+    if (cell.fontWeight) customStyle.fontWeight = cell.fontWeight;
+    if (cell.fontStyle) customStyle.fontStyle = cell.fontStyle;
+    if (cell.textDecoration) customStyle.textDecoration = cell.textDecoration;
+    if (cell.fontSize) customStyle.fontSize = cell.fontSize;
+    if (cell.fontFamily) customStyle.fontFamily = cell.fontFamily;
+    if (cell.color) customStyle.color = cell.color;
+
+    const finalStyle = { ...baseStyle, ...customStyle };
+    const attrStr = attrs.join(' ');
+    return `<td ${attrStr} style="${buildStyleString(finalStyle)}">${displayValue}</td>`;
   }
 
   // Fallback for unexpected types
-  return `<td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(String(cell))}</td>`;
+  const baseStyle = bordered
+    ? { border: '1px solid #000', verticalAlign: 'top' }
+    : { verticalAlign: 'top' };
+  return `<td ${dataAttrs} style="${buildStyleString(baseStyle)}">${escapeHtml(String(cell))}</td>`;
 }
 
 /**
  * Render a table element
  */
-function renderTable(element) {
+function renderTable(element, elementIndex) {
   if (!element.rows || element.rows.length === 0) {
     return '<!-- Empty table -->';
   }
 
   // Validate and fix column counts
   const fixedElement = validateAndFixTable(element);
+  const bordered = element.bordered === true;
 
   const rowsHtml = fixedElement.rows
-    .map((row) => {
-      const cellsHtml = row.map((cell) => renderCell(cell)).join('');
-      return `<tr>${cellsHtml}</tr>`;
+    .map((row, rowIndex) => {
+      const cellsHtml = row
+        .map((cell, colIndex) => renderCell(cell, bordered, elementIndex, rowIndex, colIndex))
+        .join('');
+      return `<tr data-row="${rowIndex}">${cellsHtml}</tr>`;
     })
     .join('\n');
 
-  return `<table style="border-collapse: collapse; width: 100%; font-size: 11px; margin-bottom: 8px;">
+  // Build table styles
+  const tableStyle = {
+    borderCollapse: 'collapse',
+    width: '100%',
+  };
+
+  // Apply custom element styles (margins, width override)
+  const customStyle = element.customStyle || {};
+  if (customStyle.marginTop) tableStyle.marginTop = customStyle.marginTop;
+  if (customStyle.marginBottom) tableStyle.marginBottom = customStyle.marginBottom;
+  if (customStyle.marginLeft) tableStyle.marginLeft = customStyle.marginLeft;
+  if (customStyle.marginRight) tableStyle.marginRight = customStyle.marginRight;
+  if (customStyle.width) tableStyle.width = customStyle.width;
+
+  const borderAttr = bordered ? 'border="1"' : 'border="0"';
+  const cellPadding = element.cellPadding || '0';
+  const cellSpacing = element.cellSpacing || '0';
+
+  return `<table class="selectable" data-element-index="${elementIndex}" data-element-type="table" ${borderAttr} cellpadding="${cellPadding}" cellspacing="${cellSpacing}" style="${buildStyleString(tableStyle)}">
 ${rowsHtml}
 </table>`;
 }
@@ -209,7 +316,7 @@ ${rowsHtml}
 /**
  * Render a paragraph element
  */
-function renderParagraph(element, blockMap) {
+function renderParagraph(element, blockMap, elementIndex) {
   let text = '';
 
   if (element.text) {
@@ -220,7 +327,17 @@ function renderParagraph(element, blockMap) {
     text = `[Missing block ${element.blockIndex}]`;
   }
 
-  return `<div class="paragraph" style="padding: 8px 0; font-size: 11px; line-height: 1.4;">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+  // Build paragraph styles
+  const baseStyle = {
+    padding: '8px 0',
+    lineHeight: '1',
+  };
+
+  // Apply custom element styles
+  const customStyle = element.customStyle || {};
+  const finalStyle = { ...baseStyle, ...customStyle };
+
+  return `<div class="paragraph selectable" data-element-index="${elementIndex}" data-element-type="paragraph" style="${buildStyleString(finalStyle)}">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
 }
 
 /**
@@ -237,9 +354,8 @@ function wrapInDocument(pagesHtml) {
     * { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
-      font-size: 11px;
-      line-height: 1.3;
-      max-width: 850px;
+      font-size: 10px;
+      line-height: 1;
       margin: 20px auto;
       padding: 20px;
       background: #fff;
@@ -259,7 +375,25 @@ function wrapInDocument(pagesHtml) {
       border-collapse: collapse;
     }
     td {
-      vertical-align: middle;
+      vertical-align: top;
+    }
+    /* Selection styles */
+    .selectable:hover {
+      outline: 2px solid #3b82f6;
+      outline-offset: 1px;
+      cursor: pointer;
+    }
+    .selectable.selected {
+      outline: 2px solid #2563eb;
+      outline-offset: 1px;
+      background-color: rgba(59, 130, 246, 0.1);
+    }
+    .selectable-cell:hover {
+      background-color: rgba(59, 130, 246, 0.15);
+      cursor: pointer;
+    }
+    .selectable-cell.selected {
+      background-color: rgba(59, 130, 246, 0.25);
     }
     @media print {
       body { margin: 0; padding: 10px; }

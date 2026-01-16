@@ -67,12 +67,19 @@ All form content, grids, lists become tables.
 {
   "type": "table",
   "columns": 6,
+  "bordered": true,
   "rows": [
     ["Name:", "", "", "Date:", "", ""],
     ["Address:", {"text": "", "colspan": 5}]
   ]
 }
 \`\`\`
+
+**bordered field:**
+- \`bordered: true\` → visible grid lines (for data tables with visible borders)
+- \`bordered: false\` → no borders (for layout tables, underline-style forms)
+
+Look at the document: if cells have visible border lines, use \`bordered: true\`. If table is used for layout (labels with underlines, no visible grid), use \`bordered: false\`.
 
 **Important - Column Count Rules:**
 1. The \`columns\` field declares the table's column count - this is the TOTAL width
@@ -275,6 +282,7 @@ Use this when document has visible box borders with aligned edges:
     {
       "type": "table",
       "columns": 4,
+      "bordered": true,
       "rows": [
         ["Account Number", "", "Date", ""],
         ["Client Name", "", "Branch", ""]
@@ -296,6 +304,7 @@ Use this when document has underlines that zigzag (don't align vertically):
     {
       "type": "table",
       "columns": 2,
+      "bordered": false,
       "rows": [
         [{"text": "Trust/ Society Name:", "colspan": 2}],
         ["Contact Number:**", "Email ID:**"],
@@ -308,7 +317,7 @@ Use this when document has underlines that zigzag (don't align vertically):
 }
 \`\`\`
 
-Notice: No empty cells for values - the underlines are part of the label cell.
+Notice: No empty cells for values - the underlines are part of the label cell. Also \`bordered: false\` for layout tables.
 
 Now analyze the document image and output the structure.`;
 
