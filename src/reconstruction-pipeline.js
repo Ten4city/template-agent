@@ -17,10 +17,32 @@
 
 import fs from 'fs';
 import path from 'path';
-import { renderDocxToImages } from '../render.js';
+import { renderDocxToImages, renderPdfToImages } from '../render.js';
 import { extractLayout } from './layout/index.js';
 import { extractDocumentStructure } from './extractor/reconstruction-extractor.js';
 import { renderDocumentStructure } from './renderer/reconstruction-renderer.js';
+
+// =============================================================================
+// EXPORT: Convert document to images (Phase 1)
+// =============================================================================
+
+/**
+ * Convert a document (DOCX or PDF) to page images
+ * @param {string} inputPath - Path to document file
+ * @param {string} fileType - 'docx' or 'pdf'
+ * @returns {Promise<{pdfPath: string, imagePaths: string[]}>}
+ */
+export async function convertToImages(inputPath, fileType = 'docx') {
+  if (fileType === 'pdf') {
+    return await renderPdfToImages(inputPath);
+  } else {
+    return await renderDocxToImages(inputPath);
+  }
+}
+
+// Re-export for convenience
+export { extractDocumentStructure } from './extractor/reconstruction-extractor.js';
+export { renderDocumentStructure } from './renderer/reconstruction-renderer.js';
 
 // =============================================================================
 // MAIN PIPELINE
@@ -208,6 +230,10 @@ Example:
 }
 
 // Run if called directly
-main();
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  main();
+}
 
 export { runReconstructionPipeline };

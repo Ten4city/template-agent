@@ -48,6 +48,13 @@ export default function SelectablePreview({ html, selection, onSelect }) {
     const cell = e.target.closest('.selectable-cell');
     const element = e.target.closest('.selectable');
 
+    // Click outside any element = deselect
+    if (!element) {
+      setLastCellClick(null);
+      onSelect(null);
+      return;
+    }
+
     if (cell && element) {
       const row = parseInt(cell.dataset.row, 10);
       const col = parseInt(cell.dataset.col, 10);
@@ -115,10 +122,12 @@ export default function SelectablePreview({ html, selection, onSelect }) {
     <Paper
       radius="md"
       p="lg"
+      onClick={handleClick}
       style={{
         backgroundColor: '#ffffff',
         minHeight: '100%',
         overflow: 'auto',
+        cursor: 'default',
       }}
     >
       <style>{`
@@ -155,12 +164,42 @@ export default function SelectablePreview({ html, selection, onSelect }) {
         .preview-inner td {
           padding: 4px 8px;
         }
+        /* Field styles in preview */
+        .preview-inner .leegality-textbox {
+          border: none;
+          border-bottom: 1px solid #333;
+          background: rgba(59, 130, 246, 0.05);
+          padding: 2px 4px;
+          min-width: 80px;
+          font-size: inherit;
+        }
+        .preview-inner .leegality-textbox:focus {
+          outline: none;
+          border-bottom-color: ${theme.colors.blue[6]};
+          background: rgba(59, 130, 246, 0.1);
+        }
+        .preview-inner .leegality-checkbox-label,
+        .preview-inner .leegality-radio-label {
+          margin-right: 8px;
+          cursor: pointer;
+        }
+        .preview-inner .leegality-textarea {
+          border: 1px solid #333;
+          background: rgba(59, 130, 246, 0.05);
+          padding: 4px;
+          min-width: 120px;
+          min-height: 40px;
+          font-size: inherit;
+        }
+        .preview-inner input[type="date"] {
+          min-width: 100px;
+        }
       `}</style>
       <div
         ref={containerRef}
         className="preview-inner"
-        onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        style={{ paddingBottom: '50px' }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </Paper>

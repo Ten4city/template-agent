@@ -5,38 +5,13 @@
  * Uses Gemini to analyze page images and output simple structure.
  */
 
-import { VertexAI } from '@google-cloud/vertexai';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { RECONSTRUCTION_SYSTEM_PROMPT, RECONSTRUCTION_TOOLS } from './prompt-reconstruction.js';
+import { createGenerativeModel, convertToolsToGemini } from './gemini-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const serviceAccountPath = '/Users/ritik/Downloads/internal-operations-461404-316ec7fe1406 (3).json';
-
-/**
- * Convert tool definitions to Gemini function declarations
- */
-function convertToolsToGemini(tools) {
-  return tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.input_schema,
-  }));
-}
-
-/**
- * Create Gemini client with Vertex AI
- */
-function createGeminiClient() {
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = serviceAccountPath;
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf-8'));
-
-  return new VertexAI({
-    project: serviceAccount.project_id,
-    location: 'us-central1',
-  });
-}
 
 /**
  * Extract structure from a single page
@@ -48,12 +23,20 @@ export async function extractPageStructure(imagePath, options = {}) {
     model = 'gemini-2.5-pro',
     verbose = false,
     textBlocks = [],
+    context,
   } = options;
 
-  const vertexAI = createGeminiClient();
+  // Build system instruction with optional user context
+  let systemInstruction = RECONSTRUCTION_SYSTEM_PROMPT;
+  if (context) {
+    systemInstruction += `\n\n## ADDITIONAL CONTEXT FROM USER\n\n${context}`;
+  }
 
-  const generativeModel = vertexAI.getGenerativeModel({
-    model,
+  if (verbose) {
+    console.log(`[Reconstruction] Using model: ${model}`);
+  }
+
+  const generativeModel = createGenerativeModel(model, {
     generationConfig: {
       maxOutputTokens: 8192,
       temperature: 0.1,
@@ -63,7 +46,7 @@ export async function extractPageStructure(imagePath, options = {}) {
         functionDeclarations: convertToolsToGemini(RECONSTRUCTION_TOOLS),
       },
     ],
-    systemInstruction: RECONSTRUCTION_SYSTEM_PROMPT,
+    systemInstruction,
   });
 
   // Load image as base64
@@ -223,9 +206,15 @@ ${blockPreview || 'No text blocks available'}
 
 /**
  * Extract structure from multiple pages
+ * @param {string[]} imagePaths - Array of image paths to process
+ * @param {Object} options - Extraction options
+ * @param {string} [options.context] - Additional context from user to append to system prompt
+ * @param {function} [options.onPageComplete] - Callback (pageNum, totalPages) called after each page
+ * @param {Array} [options.textBlocksByPage] - Text blocks for each page
+ * @param {boolean} [options.verbose] - Enable verbose logging
  */
 export async function extractDocumentStructure(imagePaths, options = {}) {
-  const { textBlocksByPage = [], verbose = false } = options;
+  const { textBlocksByPage = [], verbose = false, context, onPageComplete } = options;
   const pageResults = [];
   const pages = [];
 
@@ -244,6 +233,7 @@ export async function extractDocumentStructure(imagePaths, options = {}) {
       ...options,
       pageNumber,
       textBlocks,
+      context,
     });
 
     pageResults.push({
@@ -253,6 +243,11 @@ export async function extractDocumentStructure(imagePaths, options = {}) {
 
     if (result.pageStructure) {
       pages.push(result.pageStructure);
+    }
+
+    // Call progress callback
+    if (onPageComplete) {
+      onPageComplete(pageNumber, imagePaths.length);
     }
   }
 

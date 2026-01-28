@@ -2,7 +2,7 @@
  * Reconstruction Renderer
  *
  * Renders simplified structure to clean HTML tables.
- * No form inputs - just visual reconstruction.
+ * Supports field objects for form inputs.
  */
 
 /**
@@ -202,10 +202,16 @@ function renderCell(cell, bordered = false, elementIndex = 0, rowIndex = 0, colI
     return `<td ${dataAttrs} style="${buildStyleString(baseStyle)}">${displayValue}</td>`;
   }
 
-  // Object cell - may have rowspan/colspan and custom styles
+  // Object cell - may have rowspan/colspan, custom styles, and/or field
   if (typeof cell === 'object' && cell !== null) {
     const text = cell.text || '';
-    const displayValue = escapeHtml(text).replace(/\n/g, '<br>');
+    let displayValue = escapeHtml(text).replace(/\n/g, '<br>');
+
+    // If cell has a field, render the field after the text
+    if (cell.field) {
+      const fieldHtml = renderField(cell.field);
+      displayValue = displayValue ? `${displayValue} ${fieldHtml}` : fieldHtml;
+    }
 
     const attrs = [dataAttrs];
     if (cell.rowspan && cell.rowspan > 1) {
@@ -317,14 +323,32 @@ ${rowsHtml}
  * Render a paragraph element
  */
 function renderParagraph(element, blockMap, elementIndex) {
-  let text = '';
+  let content = '';
 
-  if (element.text) {
-    text = element.text;
+  // Check if paragraph has content array (with inline fields)
+  if (element.content && Array.isArray(element.content)) {
+    content = element.content
+      .map((item) => {
+        if (typeof item === 'string') {
+          return escapeHtml(item).replace(/\n/g, '<br>');
+        }
+        if (typeof item === 'object' && item.field) {
+          return renderField(item.field);
+        }
+        return '';
+      })
+      .join('');
+  } else if (element.text) {
+    content = escapeHtml(element.text).replace(/\n/g, '<br>');
   } else if (element.blockIndex !== undefined && blockMap[element.blockIndex]) {
-    text = blockMap[element.blockIndex].text;
+    content = escapeHtml(blockMap[element.blockIndex].text).replace(/\n/g, '<br>');
   } else if (element.blockIndex !== undefined) {
-    text = `[Missing block ${element.blockIndex}]`;
+    content = `[Missing block ${element.blockIndex}]`;
+  }
+
+  // If paragraph has a standalone field (not inline), append it
+  if (element.field && !element.content) {
+    content += ' ' + renderField(element.field);
   }
 
   // Build paragraph styles
@@ -337,7 +361,7 @@ function renderParagraph(element, blockMap, elementIndex) {
   const customStyle = element.customStyle || {};
   const finalStyle = { ...baseStyle, ...customStyle };
 
-  return `<div class="paragraph selectable" data-element-index="${elementIndex}" data-element-type="paragraph" style="${buildStyleString(finalStyle)}">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+  return `<div class="paragraph selectable" data-element-index="${elementIndex}" data-element-type="paragraph" style="${buildStyleString(finalStyle)}">${content}</div>`;
 }
 
 /**
@@ -395,6 +419,51 @@ function wrapInDocument(pagesHtml) {
     .selectable-cell.selected {
       background-color: rgba(59, 130, 246, 0.25);
     }
+    /* Leegality field styles */
+    .leegality-textbox {
+      border: none;
+      border-bottom: 1px solid #333;
+      background: transparent;
+      padding: 2px 4px;
+      min-width: 80px;
+      font-size: inherit;
+      font-family: inherit;
+    }
+    .leegality-textbox:focus {
+      outline: none;
+      border-bottom-color: #2563eb;
+    }
+    .leegality-checkbox,
+    .leegality-radio {
+      margin-right: 4px;
+      cursor: pointer;
+    }
+    .leegality-checkbox-label,
+    .leegality-radio-label {
+      margin-right: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .leegality-textarea {
+      border: 1px solid #333;
+      background: transparent;
+      padding: 4px;
+      min-width: 150px;
+      min-height: 60px;
+      font-size: inherit;
+      font-family: inherit;
+      resize: vertical;
+    }
+    .leegality-textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+    input[type="file"] {
+      font-size: 10px;
+    }
+    input[type="date"] {
+      min-width: 120px;
+    }
     @media print {
       body { margin: 0; padding: 10px; }
       .page {
@@ -424,4 +493,62 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Render a field object as HTML input element
+ */
+function renderField(field) {
+  if (!field || !field.type) return '';
+
+  const id = field.id || Date.now();
+  const name = field.name || `field_${id}`;
+
+  switch (field.type) {
+    case 'textbox':
+      return `<input type="text" class="leegality-textbox" id="${id}" name="${name}">`;
+
+    case 'email':
+      return `<input type="email" class="leegality-textbox" id="${id}" name="${name}" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$">`;
+
+    case 'tel':
+      return `<input type="tel" class="leegality-textbox" id="${id}" name="${name}">`;
+
+    case 'date':
+      return `<input type="date" class="leegality-textbox" id="${id}" name="${name}">`;
+
+    case 'number':
+      return `<input type="number" class="leegality-textbox" id="${id}" name="${name}">`;
+
+    case 'checkbox':
+      if (field.options && field.options.length > 0) {
+        return field.options
+          .map((opt, idx) => {
+            const optId = `${id}_${idx}`;
+            return `<label class="leegality-checkbox-label"><input type="checkbox" class="leegality-checkbox" id="${optId}" name="${name}" value="${escapeHtml(opt.value)}"> ${escapeHtml(opt.label)}</label>`;
+          })
+          .join(' ');
+      }
+      return `<input type="checkbox" class="leegality-checkbox" id="${id}" name="${name}">`;
+
+    case 'radio':
+      if (field.options && field.options.length > 0) {
+        return field.options
+          .map((opt, idx) => {
+            const optId = `${id}_${idx}`;
+            return `<label class="leegality-radio-label"><input type="radio" class="leegality-radio" id="${optId}" name="${name}" value="${escapeHtml(opt.value)}"> ${escapeHtml(opt.label)}</label>`;
+          })
+          .join(' ');
+      }
+      return `<input type="radio" class="leegality-radio" id="${id}" name="${name}">`;
+
+    case 'textarea':
+      return `<textarea class="leegality-textarea" id="${id}" name="${name}"></textarea>`;
+
+    case 'image':
+      return `<input type="file" class="form-image-${id}" id="${id}" accept="image/*">`;
+
+    default:
+      return `<input type="text" class="leegality-textbox" id="${id}" name="${name}">`;
+  }
 }

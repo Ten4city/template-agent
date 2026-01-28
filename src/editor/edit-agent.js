@@ -82,7 +82,7 @@ ${userPrompt}`;
  * @returns {Object} {editedStructure, toolsUsed, iterations, summary}
  */
 export async function runEditAgent(structure, selection, userPrompt, options = {}) {
-  const { verbose = true, maxIterations = 10, model = 'gemini-2.5-pro' } = options;
+  const { verbose = true, maxIterations = 10, model = 'gemini-2.5-flash' } = options;
 
   const vertexAI = createGeminiClient();
 
