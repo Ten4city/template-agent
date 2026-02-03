@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   AppShell,
   Group,
@@ -8,8 +8,9 @@ import {
   Box,
   useMantineTheme,
 } from '@mantine/core';
-import { IconRefresh, IconAlertCircle, IconUpload, IconScan, IconDownload } from '@tabler/icons-react';
+import { IconRefresh, IconAlertCircle, IconUpload, IconScan, IconDownload, IconCode, IconEdit } from '@tabler/icons-react';
 import SelectablePreview from './components/SelectablePreview';
+import CKEditorWrapper from './components/CKEditorWrapper';
 import ChatPanel from './components/ChatPanel';
 import DiffPreview from './components/DiffPreview';
 import FileUpload from './components/FileUpload';
@@ -46,6 +47,10 @@ function App() {
 
   // Field detection state
   const [isDetectingFields, setIsDetectingFields] = useState(false);
+
+  // Editing mode: 'json' | 'ckeditor'
+  const [editingMode, setEditingMode] = useState('json');
+  const ckeditorRef = useRef(null);
 
   // Check if there's existing structure on load (for backward compatibility)
   useEffect(() => {
@@ -231,6 +236,7 @@ function App() {
           structure,
           selection,
           prompt,
+          jobId,
         }),
       });
 
@@ -481,7 +487,7 @@ ${html}
   return (
     <AppShell
       header={{ height: 56 }}
-      aside={{ width: 400, breakpoint: 'sm' }}
+      aside={editingMode === 'json' ? { width: 400, breakpoint: 'sm' } : undefined}
       padding={0}
     >
       <AppShell.Header
@@ -510,6 +516,27 @@ ${html}
                 Detect Fields (Page {page.pageNumber})
               </Button>
             ))}
+            {editingMode === 'json' ? (
+              <Button
+                variant="light"
+                color="violet"
+                size="sm"
+                leftSection={<IconEdit size={16} />}
+                onClick={() => setEditingMode('ckeditor')}
+              >
+                Edit in CKEditor
+              </Button>
+            ) : (
+              <Button
+                variant="light"
+                color="violet"
+                size="sm"
+                leftSection={<IconCode size={16} />}
+                onClick={() => setEditingMode('json')}
+              >
+                Back to JSON Mode
+              </Button>
+            )}
             <Button
               variant="subtle"
               color="gray"
@@ -566,6 +593,13 @@ ${html}
         <Box p="md" style={{ height: '100%' }}>
           {editResult ? (
             <DiffPreview beforeHtml={beforeHtml} afterHtml={afterHtml} />
+          ) : editingMode === 'ckeditor' ? (
+            <CKEditorWrapper
+              key="ckeditor-instance"
+              html={html}
+              onHtmlChange={setHtml}
+              editorRef={ckeditorRef}
+            />
           ) : (
             <SelectablePreview
               html={html}
@@ -576,22 +610,24 @@ ${html}
         </Box>
       </AppShell.Main>
 
-      <AppShell.Aside
-        style={{
-          backgroundColor: theme.colors.dark[8],
-          borderLeft: `1px solid ${theme.colors.dark[5]}`,
-        }}
-      >
-        <ChatPanel
-          selection={selection}
-          messages={messages}
-          onExecute={handleExecute}
-          isExecuting={isExecuting}
-          hasResult={!!editResult}
-          onAccept={handleAccept}
-          onReject={handleReject}
-        />
-      </AppShell.Aside>
+      {editingMode === 'json' && (
+        <AppShell.Aside
+          style={{
+            backgroundColor: theme.colors.dark[8],
+            borderLeft: `1px solid ${theme.colors.dark[5]}`,
+          }}
+        >
+          <ChatPanel
+            selection={selection}
+            messages={messages}
+            onExecute={handleExecute}
+            isExecuting={isExecuting}
+            hasResult={!!editResult}
+            onAccept={handleAccept}
+            onReject={handleReject}
+          />
+        </AppShell.Aside>
+      )}
     </AppShell>
   );
 }

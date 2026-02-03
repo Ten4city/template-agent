@@ -29,6 +29,7 @@ const { convertToImages, extractDocumentStructure } = await import(
 );
 const { detectPageFields } = await import(path.join(srcPath, 'extractor/field-detector.js'));
 const { injectFieldsIntoDocument } = await import(path.join(srcPath, 'injector/field-injector.js'));
+const editTracker = await import(path.join(srcPath, 'data-collection/edit-tracker.js'));
 
 const app = express();
 app.use(cors());
@@ -119,7 +120,7 @@ app.get('/api/structure', (req, res) => {
  */
 app.post('/api/edit', async (req, res) => {
   try {
-    const { structure, selection, prompt } = req.body;
+    const { structure, selection, prompt, jobId } = req.body;
 
     if (!structure || !selection || !prompt) {
       return res.status(400).json({
@@ -144,6 +145,21 @@ app.post('/api/edit', async (req, res) => {
       return match ? match[1] : html;
     };
 
+    // Record edit in tracker (if jobId provided)
+    if (jobId) {
+      editTracker.recordEdit(jobId, {
+        type: 'json_agent',
+        instruction: prompt,
+        selection: selection,
+        before: { structure },
+        after: { structure: result.editedStructure },
+        metadata: {
+          toolsUsed: result.toolsUsed,
+          summary: result.summary,
+        },
+      });
+    }
+
     res.json({
       editedStructure: result.editedStructure,
       toolsUsed: result.toolsUsed,
@@ -154,6 +170,64 @@ app.post('/api/edit', async (req, res) => {
     });
   } catch (err) {
     console.error('Error in /api/edit:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/edit-html
+ * Execute an edit on raw HTML/text (for CKEditor mode)
+ *
+ * Body: { selectedText, prompt, jobId? }
+ */
+app.post('/api/edit-html', async (req, res) => {
+  try {
+    const { selectedText, prompt, jobId } = req.body;
+
+    if (!selectedText || !prompt) {
+      return res.status(400).json({
+        error: 'Missing required fields: selectedText, prompt',
+      });
+    }
+
+    console.log(`[Server] CKEditor edit request: "${prompt}"`);
+    console.log(`[Server] Selected text: "${selectedText.substring(0, 100)}..."`);
+
+    // Use Gemini to process the edit
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+
+    const systemPrompt = `You are an HTML editing assistant. The user has selected some text/HTML in an editor and wants to modify it.
+
+Selected content:
+${selectedText}
+
+User's instruction:
+${prompt}
+
+Respond with ONLY the replacement HTML/text. No explanations, no markdown, just the content that should replace the selection.`;
+
+    const result = await model.generateContent(systemPrompt);
+    const replacement = result.response.text().trim();
+
+    // Record edit in tracker (if jobId provided)
+    if (jobId) {
+      editTracker.recordEdit(jobId, {
+        type: 'ckeditor_agent',
+        instruction: prompt,
+        selection: { text: selectedText },
+        before: { text: selectedText },
+        after: { text: replacement },
+      });
+    }
+
+    res.json({
+      replacement,
+      summary: `Edited: "${selectedText.substring(0, 30)}..." → "${replacement.substring(0, 30)}..."`,
+    });
+  } catch (err) {
+    console.error('Error in /api/edit-html:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -335,6 +409,13 @@ app.post('/api/extract', async (req, res) => {
  */
 async function extractSelectedPages(job, selectedPages, context, model) {
   try {
+    // Start edit tracking session
+    editTracker.startSession(job.id, {
+      originalFile: job.filePath,
+      pageCount: selectedPages.length,
+      model: model,
+    });
+
     // Get selected image paths
     const selectedImages = job.images
       .filter((img) => selectedPages.includes(img.page))
@@ -372,6 +453,12 @@ async function extractSelectedPages(job, selectedPages, context, model) {
     const structurePath = path.join(job.jobDir, 'extracted-structure.json');
     fs.writeFileSync(structurePath, JSON.stringify(documentStructure, null, 2));
     console.log(`[Server] Structure saved to: ${structurePath}`);
+
+    // Record extraction in edit tracker
+    editTracker.recordExtraction(job.id, {
+      structure: documentStructure,
+      html: bodyHtml,
+    });
 
     console.log(`[Server] Extraction complete (job: ${job.id})`);
   } catch (err) {
@@ -473,6 +560,16 @@ app.post('/api/detect-fields', async (req, res) => {
     // Inject fields into structure
     const updatedStructure = injectFieldsIntoDocument(structure, pageNumber, fields);
 
+    // Record field injection in tracker
+    editTracker.recordEdit(jobId, {
+      type: 'field_injection',
+      instruction: `Detect and inject ${fields.length} fields on page ${pageNumber}`,
+      selection: { pageNumber },
+      before: { structure },
+      after: { structure: updatedStructure },
+      metadata: { fields },
+    });
+
     // Re-render HTML
     const html = renderDocumentStructure(updatedStructure);
     const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
@@ -487,6 +584,63 @@ app.post('/api/detect-fields', async (req, res) => {
     console.error('[Server] Field detection error:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * POST /api/save-edit-data
+ * Save the edit tracking data for a job
+ *
+ * Body: { jobId, finalHtml?, finalStructure? }
+ */
+app.post('/api/save-edit-data', async (req, res) => {
+  try {
+    const { jobId, finalHtml, finalStructure } = req.body;
+
+    if (!jobId) {
+      return res.status(400).json({ error: 'Missing jobId' });
+    }
+
+    const job = jobs.get(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Record final output if provided
+    if (finalHtml || finalStructure) {
+      editTracker.recordFinalOutput(jobId, {
+        html: finalHtml,
+        structure: finalStructure,
+      });
+    }
+
+    // Save session to disk
+    const filePath = editTracker.saveSession(jobId, job.jobDir);
+    const stats = editTracker.getSessionStats(jobId);
+
+    res.json({
+      success: true,
+      filePath,
+      stats,
+    });
+  } catch (err) {
+    console.error('[Server] Save edit data error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/edit-stats/:jobId
+ * Get edit tracking statistics for a job
+ */
+app.get('/api/edit-stats/:jobId', (req, res) => {
+  const { jobId } = req.params;
+  const stats = editTracker.getSessionStats(jobId);
+
+  if (!stats) {
+    return res.status(404).json({ error: 'No tracking session found for this job' });
+  }
+
+  res.json(stats);
 });
 
 const PORT = process.env.PORT || 3001;

@@ -37,6 +37,7 @@ export default function ChatPanel({
   hasResult,
   onAccept,
   onReject,
+  editingMode = 'json',
 }) {
   const theme = useMantineTheme();
   const [prompt, setPrompt] = useState('');
@@ -59,7 +60,7 @@ export default function ChatPanel({
 
   const handleSubmit = (e) => {
     e?.preventDefault();
-    if (prompt.trim() && selection && !isExecuting) {
+    if (prompt.trim() && hasValidSelection() && !isExecuting) {
       onExecute(prompt.trim());
       setPrompt('');
     }
@@ -74,6 +75,18 @@ export default function ChatPanel({
   const getSelectionText = () => {
     if (!selection) return null;
 
+    // CKEditor mode - text-based selection
+    if (editingMode === 'ckeditor') {
+      if (selection.hasSelection && selection.text) {
+        const truncated = selection.text.length > 50
+          ? selection.text.substring(0, 50) + '...'
+          : selection.text;
+        return `"${truncated}"`;
+      }
+      return 'Select text in editor';
+    }
+
+    // JSON mode - element/cell selection
     if (selection.type === 'element') {
       return `${selection.elementType} (element ${selection.elementIndex})`;
     }
@@ -83,6 +96,14 @@ export default function ChatPanel({
     }
 
     return 'Selection active';
+  };
+
+  // Determine if selection is valid for editing
+  const hasValidSelection = () => {
+    if (editingMode === 'ckeditor') {
+      return selection?.hasSelection && selection?.text?.length > 0;
+    }
+    return !!selection;
   };
 
   const renderMessage = (msg) => {
@@ -215,9 +236,13 @@ export default function ChatPanel({
         }}
       >
         <Group gap="xs">
-          <IconMapPin size={16} color={selection ? theme.colors.blue[4] : theme.colors.dark[4]} />
-          <Text size="sm" c={selection ? 'white' : 'dimmed'}>
-            {selection ? getSelectionText() : 'Click an element to select'}
+          <IconMapPin size={16} color={hasValidSelection() ? theme.colors.blue[4] : theme.colors.dark[4]} />
+          <Text size="sm" c={hasValidSelection() ? 'white' : 'dimmed'}>
+            {hasValidSelection()
+              ? getSelectionText()
+              : editingMode === 'ckeditor'
+                ? 'Select text in editor'
+                : 'Click an element to select'}
           </Text>
         </Group>
       </Box>
@@ -281,18 +306,24 @@ export default function ChatPanel({
         <form onSubmit={handleSubmit}>
           <TextInput
             ref={inputRef}
-            placeholder={selection ? "Describe your edit..." : "Select an element first"}
+            placeholder={
+              hasValidSelection()
+                ? "Describe your edit..."
+                : editingMode === 'ckeditor'
+                  ? "Select text in editor first"
+                  : "Select an element first"
+            }
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!selection || isExecuting || hasResult}
+            disabled={!hasValidSelection() || isExecuting || hasResult}
             rightSection={
               <ActionIcon
                 variant="filled"
                 color="blue"
                 size="sm"
                 onClick={handleSubmit}
-                disabled={!selection || !prompt.trim() || isExecuting || hasResult}
+                disabled={!hasValidSelection() || !prompt.trim() || isExecuting || hasResult}
               >
                 {isExecuting ? <Loader size="xs" color="white" /> : <IconSend size={14} />}
               </ActionIcon>

@@ -1,0 +1,930 @@
+/*
+Copyright (c) 2003-2018, CKSource - Frederico Knabben. All rights reserved.
+For licensing, see LICENSE.md or https://ckeditor.com/legal/ckeditor-oss-license
+*/
+
+body {
+  /* Font */
+  /* Emoji fonts are added to visualise them nicely in Internet Explorer. */
+  font-family: sans-serif, Arial, Verdana, "Trebuchet MS", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 12px;
+
+  /* Text color */
+  color: #333;
+
+  /* Remove the background color to make it transparent. */
+  background-color: #fff;
+
+  margin: 20px;
+}
+
+.cke_editable {
+  font-size: 13px;
+  line-height: 1.6;
+
+  /* Fix for missing scrollbars with RTL texts. (#10488) */
+  word-wrap: break-word;
+}
+
+blockquote {
+  font-style: italic;
+  font-family: Georgia, Times, "Times New Roman", serif;
+  padding: 2px 0;
+  border-style: solid;
+  border-color: #ccc;
+  border-width: 0;
+}
+
+.cke_contents_ltr blockquote {
+  padding-left: 20px;
+  padding-right: 8px;
+  border-left-width: 5px;
+}
+
+.cke_contents_rtl blockquote {
+  padding-left: 8px;
+  padding-right: 20px;
+  border-right-width: 5px;
+}
+
+a {
+  color: #0782C1;
+}
+
+ol, ul, dl {
+  /* IE7: reset rtl list margin. (#7334) */
+  *margin-right: 0px;
+  /* Preserved spaces for list items with text direction different than the list. (#6249,#8049)*/
+  padding: 0 0 0 40px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: normal;
+  line-height: 1.2;
+}
+
+hr {
+  border: 0px;
+  border-top: 1px solid #ccc;
+}
+
+img.right {
+  border: 1px solid #ccc;
+  float: right;
+  margin-left: 15px;
+  padding: 5px;
+}
+
+img.left {
+  border: 1px solid #ccc;
+  float: left;
+  margin-right: 15px;
+  padding: 5px;
+}
+
+pre {
+  white-space: pre-wrap; /* CSS 2.1 */
+  word-wrap: break-word; /* IE7 */
+  -moz-tab-size: 4;
+  tab-size: 4;
+}
+
+.marker {
+  background-color: Yellow;
+}
+
+span[lang] {
+  font-style: normal;
+}
+
+figure {
+  text-align: center;
+  outline: solid 1px #ccc;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 10px;
+  margin: 10px 20px;
+  display: inline-block;
+}
+
+figure > figcaption {
+  text-align: center;
+  display: block; /* For IE8 */
+}
+
+a > img {
+  padding: 1px;
+  margin: 1px;
+  border: none;
+  outline: 1px solid #0782C1;
+}
+
+/* Widget Styles */
+.code-featured {
+  border: 5px solid red;
+}
+
+.math-featured {
+  padding: 20px;
+  box-shadow: 0 0 2px rgba(200, 0, 0, 1);
+  background-color: rgba(255, 0, 0, 0.05);
+  margin: 10px;
+}
+
+.image-clean {
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+.image-clean > figcaption {
+  font-size: .9em;
+  text-align: right;
+}
+
+.image-grayscale {
+  background-color: white;
+  color: #666;
+}
+
+.image-grayscale img, img.image-grayscale {
+  filter: grayscale(100%);
+}
+
+.embed-240p {
+  max-width: 426px;
+  max-height: 240px;
+  margin: 0 auto;
+}
+
+.embed-360p {
+  max-width: 640px;
+  max-height: 360px;
+  margin: 0 auto;
+}
+
+.embed-480p {
+  max-width: 854px;
+  max-height: 480px;
+  margin: 0 auto;
+}
+
+.embed-720p {
+  max-width: 1280px;
+  max-height: 720px;
+  margin: 0 auto;
+}
+
+.embed-1080p {
+  max-width: 1920px;
+  max-height: 1080px;
+  margin: 0 auto;
+}
+
+.cke_editable input[type] {
+  border: 1px solid #ccc;
+  padding: 8px 4px;
+  box-shadow: 0 0 2px #ccc;
+}
+
+.cke_editable select {
+  min-width: 135px;
+  min-height: 26px;
+  max-height: 28px;
+  height: 28px;
+  border: 1px solid #ccc;
+  padding: 0 1px;
+  vertical-align: middle;
+  box-shadow: 0 0 2px #ccc;
+}
+
+.cke_editable textarea {
+  vertical-align: middle;
+}
+
+.cke_editable table {
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+
+@font-face {
+  font-family: "Courier-New";
+  src: url("fonts/Courier-New.ttf");
+}
+
+@font-face {
+  font-family: "Courier-New";
+  src: url("fonts/Courier-New-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Mulish";
+  src: url("fonts/Mulish.ttf");
+}
+
+@font-face {
+  font-family: "Mulish";
+  src: url("fonts/Mulish-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Georgia";
+  src: url("fonts/Georgia.ttf");
+}
+
+@font-face {
+  font-family: "Georgia";
+  src: url("fonts/Georgia Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Tahoma";
+  src: url("fonts/Tahoma.ttf");
+}
+
+@font-face {
+  font-family: "Tahoma";
+  src: url("fonts/tahomabd.ttf");
+  font-weight: bold;
+}
+
+
+@font-face {
+  font-family: "Lucida-Sans-Unicode";
+  src: url("fonts/Lucida Sans Bold.otf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Times-New-Roman";
+  src: url("fonts/times-new-roman.ttf");
+}
+
+
+@font-face {
+  font-family: "Trebuchet-MS";
+  src: url("fonts/Trebuchet MS Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Verdana";
+  src: url("fonts/verdanab.ttf");
+  font-weight: bold;
+}
+
+
+@font-face {
+  font-family: "Apercu-Light";
+  src: url("fonts/Apercu-Light.ttf");
+}
+
+@font-face {
+  font-family: "NotoSerifBengali-Regular";
+  src: url("fonts/NotoSerifBengali-Regular.ttf");
+}
+@font-face {
+  font-family: "NotoSerifBengali-Regular";
+  src: url("fonts/NotoSerifBengali-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansTelugu-Regular";
+  src: url("fonts/NotoSansTelugu-Regular.ttf");
+}
+
+@font-face {
+  font-family: "NotoSansTelugu-Regular";
+  src: url("fonts/NotoSansTelugu-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansTamil-Regular";
+  src: url("fonts/NotoSansTamil-Regular.ttf");
+}
+@font-face {
+  font-family: "NotoSansTamil-Regular";
+  src: url("fonts/NotoSansTamil-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansOriya-Regular";
+  src: url("fonts/NotoSansOriya-Regular.ttf");
+}
+@font-face {
+  font-family: "NotoSansOriya-Regular";
+  src: url("fonts/NotoSansOriya-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansMalayalam-Regular";
+  src: url("fonts/NotoSansMalayalam-Regular.ttf");
+}
+
+@font-face {
+  font-family: "NotoSansMalayalam-Regular";
+  src: url("fonts/NotoSansMalayalam-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansKannada-Regular";
+  src: url("fonts/NotoSansKannada-Regular.ttf");
+}
+@font-face {
+  font-family: "NotoSansKannada-Regular";
+  src: url("fonts/NotoSansKannada-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansGurmukhi-Regular";
+  src: url("fonts/NotoSansGurmukhi-Regular.ttf");
+}
+@font-face {
+  font-family: "NotoSansGurmukhi-Regular";
+  src: url("fonts/NotoSansGurmukhi-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansDevanagari-Regular";
+  src: url("fonts/NotoSansDevanagari-Regular.ttf");
+}
+@font-face {
+  font-family: "NotoSansDevanagari-Regular";
+  src: url("fonts/NotoSansDevanagari-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "NotoSansGujarati-Regular";
+  src: url("fonts/NotoSansGujarati-Regular.ttf");
+}
+
+@font-face {
+  font-family: "NotoSansGujarati-Regular";
+  src: url("fonts/NotoSansGujarati-Bold.ttf");
+  font-weight: bold;
+}
+
+
+@font-face {
+  font-family: "PTSerif";
+  src: url("fonts/PTSerif-Regular.ttf");
+}
+
+@font-face {
+  font-family: "PTSerif";
+  src: url("fonts/PTSerif-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "PTSerif";
+  src: url("fonts/PTSerif-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "PTSerif";
+  src: url("fonts/PTSerif-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "Caveat";
+  src: url("fonts/Caveat-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Caveat";
+  src: url("fonts/Caveat-Bold.ttf");
+  font-weight: bold;
+}
+
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("fonts/Comfortaa-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("fonts/Comfortaa-Bold.ttf");
+  font-weight: bold;
+}
+
+
+
+
+
+@font-face {
+  font-family: "Lato";
+  src: url("fonts/Lato-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Lato";
+  src: url("fonts/Lato-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Lato";
+  src: url("fonts/Lato-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Lato";
+  src: url("fonts/Lato-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "Lobster";
+  src: url("fonts/Lobster-Regular.ttf");
+}
+
+
+
+@font-face {
+  font-family: "Lora";
+  src: url("fonts/Lora-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Lora";
+  src: url("fonts/Lora-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Lora";
+  src: url("fonts/Lora-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Lora";
+  src: url("fonts/Lora-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "Merriweather";
+  src: url("fonts/Merriweather-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Merriweather";
+  src: url("fonts/Merriweather-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Merriweather";
+  src: url("fonts/Merriweather-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Merriweather";
+  src: url("fonts/Merriweather-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "EBGaramond";
+  src: url("fonts/EBGaramond-Regular.ttf");
+}
+
+@font-face {
+  font-family: "EBGaramond";
+  src: url("fonts/EBGaramond-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "EBGaramond";
+  src: url("fonts/EBGaramond-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "EBGaramond";
+  src: url("fonts/EBGaramond-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "IndieFlower";
+  src: url("fonts/IndieFlower-Regular.ttf");
+}
+
+
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("fonts/Montserrat-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("fonts/Montserrat-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("fonts/Montserrat-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("fonts/Montserrat-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "Nunito";
+  src: url("fonts/Nunito-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("fonts/Nunito-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("fonts/Nunito-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("fonts/Nunito-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "OpenSans";
+  src: url("fonts/OpenSans-Regular.ttf");
+}
+
+@font-face {
+  font-family: "OpenSans";
+  src: url("fonts/OpenSans-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "OpenSans";
+  src: url("fonts/OpenSans-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "OpenSans";
+  src: url("fonts/OpenSans-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "Oswald";
+  src: url("fonts/Oswald-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Oswald";
+  src: url("fonts/Oswald-Bold.ttf");
+  font-weight: bold;
+}
+
+
+
+@font-face {
+  font-family: "Pacifico";
+  src: url("fonts/Pacifico-Regular.ttf");
+}
+
+
+
+@font-face {
+  font-family: "Recursive";
+  src: url("fonts/Recursive-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Recursive";
+  src: url("fonts/Recursive-Bold.ttf");
+  font-weight: bold;
+}
+
+
+@font-face {
+  font-family: "Roboto";
+  src: url("fonts/Roboto-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("fonts/Roboto-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("fonts/Roboto-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("fonts/Roboto-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "Rubik";
+  src: url("fonts/Rubik-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Rubik";
+  src: url("fonts/Rubik-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Rubik";
+  src: url("fonts/Rubik-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Rubik";
+  src: url("fonts/Rubik-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: "Spectral";
+  src: url("fonts/Spectral-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Spectral";
+  src: url("fonts/Spectral-Bold.ttf");
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: "Spectral";
+  src: url("fonts/Spectral-Italic.ttf");
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Spectral";
+  src: url("fonts/Spectral-BoldItalic.ttf");
+  font-weight: bold;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Lateef-Regular';
+  src: url('fonts/Lateef-Regular.ttf');
+}
+@font-face {
+  font-family: 'Lateef-Regular';
+  src: url('fonts/Lateef-Bold.ttf');
+  font-weight: bold;
+}
+
+@font-face {
+  font-family: 'Amiri-Regular';
+  src: url('fonts/Amiri-Regular.ttf');
+}
+@font-face {
+  font-family: 'Amiri-Regular';
+  src: url('fonts/Amiri-Bold.ttf');
+  font-weight: bold;
+}
+
+
+.font-arial {
+  font-family: Arial, Helvetica, sans-serif;;
+}
+
+.font-comic-sans-ms-new {
+  font-family: Comic Sans MS, cursive
+}
+
+.font-courier-new-new {
+  font-family: Courier New, Courier, monospace;
+}
+
+.font-mulish-new {
+  font-family: Mulish, Mulish, monospace;
+}
+
+.font-georgia-new {
+  font-family: Georgia, serif;;
+}
+
+.font-lucida-sans-unicode-new {
+  font-family: Lucida Sans Unicode, Lucida Grande, sans-serif;
+}
+
+.font-tahoma-new {
+  font-family: Tahoma, Geneva, sans-serif;
+}
+
+.font-times-new-roman-new {
+  font-family: Times New Roman, Times, serif;
+}
+
+.font-trebuchet-ms-new {
+  font-family: Trebuchet MS, Helvetica, sans-serif;
+}
+
+.font-verdana-new {
+  font-family: Verdana, Geneva, sans-serif
+}
+
+.font-garamond-regular-new {
+  font-family: Garamond, sans-serif;
+}
+
+.font-apercu-light {
+  font-family: Apercu-Light, Apercu Light, sans-serif;
+}
+
+.font-marathi-bold {
+  font-family: NotoSansDevanagari-Regular, sans-serif;
+}
+
+.font-bengali-regular {
+  font-family: NotoSerifBengali-Regular, sans-serif;
+}
+
+.font-telugu-regular {
+  font-family: NotoSansTelugu-Regular, sans-serif;
+}
+
+.font-tamil-regular {
+  font-family: NotoSansTamil-Regular, sans-serif;
+}
+
+.font-oriya-regular {
+  font-family: NotoSansOriya-Regular, sans-serif;
+}
+
+.font-malayalam-regular {
+  font-family: NotoSansMalayalam-Regular, sans-serif;
+}
+
+.font-kannada-regular {
+  font-family: NotoSansKannada-Regular, sans-serif;
+}
+
+.font-gurmukhi-regular {
+  font-family: NotoSansGurmukhi-Regular, sans-serif;
+}
+
+.font-devanagari-regular {
+  font-family: NotoSansDevanagari-Regular, sans-serif;
+}
+
+.font-gujarati-regular {
+  font-family: NotoSansGujarati-Regular, sans-serif;
+}
+
+.font-pt-serif {
+  font-family: PTSerif, sans-serif;
+}
+
+.font-caveat {
+  font-family: Caveat, cursive;
+}
+
+.font-comfortaa {
+  font-family: Comfortaa, sans-serif;
+}
+
+.font-ebgaramond {
+  font-family: EB Garamond, sans-serif;
+}
+
+.font-lato {
+  font-family: Lato, sans-serif;
+}
+
+.font-lobster {
+  font-family: Lobster, sans-serif;
+}
+
+.font-lora {
+  font-family: Lora, sans-serif;
+}
+
+.font-merriweather {
+  font-family: Merriweather, sans-serif;
+}
+
+.font-ebgaramond {
+  font-family: EBGaramond, sans-serif;
+}
+
+.font-indie-flower {
+  font-family: IndieFlower, cursive;
+}
+
+.font-montserrat {
+  font-family: Montserrat, monospace;
+}
+
+.font-nunito {
+  font-family: Nunito, sans-serif;
+}
+
+.font-open-sans {
+  font-family: OpenSans, sans-serif;
+}
+
+.font-oswald {
+  font-family: Oswald, serif;
+}
+
+.font-pacifico {
+  font-family: Pacifico, cursive;
+}
+
+.font-recursive {
+  font-family: Recursive, sans-serif;
+}
+
+.font-roboto {
+  font-family: Roboto, serif;
+}
+
+.font-rubik {
+  font-family: Rubik, sans-serif;
+}
+
+.font-spectral {
+  font-family: Spectral, serif;
+}
+
+.font-assamese-regular {
+  font-family: NotoSerifBengali-Regular, sans-serif;
+}
+
+.font-maithili-regular {
+  font-family: NotoSansDevanagari-Regular, sans-serif;
+}
+
+.font-kashmiri-regular {
+  font-family: Lateef-Regular, serif;
+}
+
+.font-sindhi-regular {
+  font-family: Lateef-Regular, serif;
+}
+
+.font-urdu-regular {
+  font-family: Amiri-Regular, serif;
+}
+
