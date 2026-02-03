@@ -116,6 +116,29 @@ export async function renderDocxToImages(docxPath, outputDir) {
 }
 
 /**
+ * Convert PDF directly to page images
+ * @param {string} pdfPath - Path to PDF file
+ * @param {string} [outputDir] - Optional output directory
+ * @returns {Promise<{pdfPath: string, imagePaths: string[]}>}
+ */
+export async function renderPdfToImages(pdfPath, outputDir) {
+  const absolutePdf = path.resolve(pdfPath);
+
+  if (!outputDir) {
+    const pdfDir = path.dirname(absolutePdf);
+    const baseName = path.basename(pdfPath, '.pdf');
+    outputDir = path.join(pdfDir, `${baseName}-render`);
+  }
+
+  console.log(`Converting ${path.basename(pdfPath)} to images...`);
+
+  const imagePaths = await pdfToImages(absolutePdf, outputDir);
+  console.log(`  Created ${imagePaths.length} page image(s)`);
+
+  return { pdfPath: absolutePdf, imagePaths };
+}
+
+/**
  * Load image as base64 for Claude vision
  * @param {string} imagePath - Path to image file
  * @returns {{type: string, media_type: string, data: string}}
@@ -141,7 +164,7 @@ export function loadImageAsBase64(imagePath) {
 }
 
 // CLI for testing
-if (process.argv[1].endsWith("render.js")) {
+if (process.argv[1]?.endsWith("render.js")) {
   const docxPath = process.argv[2];
 
   if (!docxPath) {

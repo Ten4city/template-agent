@@ -158,11 +158,27 @@ export default function SelectablePreview({ html, selection, onSelect }) {
           background-color: ${theme.colors.blue[2]} !important;
           box-shadow: inset 0 0 0 2px ${theme.colors.blue[5]};
         }
+        .preview-inner {
+          color: #000;
+          font-size: 11px;
+        }
         .preview-inner table {
+          font-size: 11px;
+        }
+        .preview-inner .paragraph {
           font-size: 11px;
         }
         .preview-inner td {
           padding: 4px 8px;
+        }
+        /* List tables: shrink number columns, expand content column */
+        .preview-inner .list-table td {
+          width: 1%;
+          white-space: nowrap;
+        }
+        .preview-inner .list-table td:last-child {
+          width: auto;
+          white-space: normal;
         }
         /* Field styles in preview */
         .preview-inner .leegality-textbox {

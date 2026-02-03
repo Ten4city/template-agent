@@ -92,7 +92,9 @@ export async function detectPageFields(imagePath, pageStructure, options = {}) {
 
   if (verbose) {
     console.log(`[FieldDetector] Starting detection for page ${pageStructure.pageNumber}`);
+    console.log(`[FieldDetector] Model: ${model}`);
     console.log(`[FieldDetector] Elements in structure: ${pageStructure.elements?.length || 0}`);
+    console.log(`[FieldDetector] User prompt:\n${userPrompt.substring(0, 500)}...`);
   }
 
   // Start chat session
@@ -208,7 +210,7 @@ export async function detectPageFields(imagePath, pageStructure, options = {}) {
 }
 
 /**
- * Validate detected fields
+ * Validate detected fields (new format with injectionPoint)
  */
 function validateFields(fields, pageStructure) {
   const errors = [];
@@ -219,39 +221,55 @@ function validateFields(fields, pageStructure) {
   }
 
   const validTypes = ['textbox', 'email', 'tel', 'date', 'number', 'checkbox', 'radio', 'textarea', 'image'];
+  const validMethods = ['replace', 'insertAfter', 'insertBefore'];
   const elementCount = pageStructure.elements?.length || 0;
 
   for (let i = 0; i < fields.length; i++) {
     const field = fields[i];
 
-    // Check required properties
-    if (field.elementIndex === undefined) {
-      errors.push(`Field ${i}: missing elementIndex`);
+    // Check required properties (new format)
+    if (!field.fieldType) {
+      errors.push(`Field ${i}: missing fieldType`);
       continue;
     }
 
-    if (!field.type) {
-      errors.push(`Field ${i}: missing type`);
+    if (!field.fieldName) {
+      errors.push(`Field ${i}: missing fieldName`);
       continue;
     }
 
-    if (!field.name) {
-      errors.push(`Field ${i}: missing name`);
+    if (!field.injectionPoint) {
+      errors.push(`Field ${i}: missing injectionPoint`);
       continue;
     }
+
+    const { injectionPoint } = field;
+
+    // Validate injectionPoint.method
+    if (!injectionPoint.method || !validMethods.includes(injectionPoint.method)) {
+      errors.push(`Field ${i}: invalid or missing method "${injectionPoint.method}"`);
+    }
+
+    // Validate injectionPoint.position
+    if (!injectionPoint.position || injectionPoint.position.elementIndex === undefined) {
+      errors.push(`Field ${i}: missing position.elementIndex`);
+      continue;
+    }
+
+    const elementIndex = injectionPoint.position.elementIndex;
 
     // Validate elementIndex is in range
-    if (field.elementIndex < 0 || field.elementIndex >= elementCount) {
-      errors.push(`Field ${i}: elementIndex ${field.elementIndex} out of range (0-${elementCount - 1})`);
+    if (elementIndex < 0 || elementIndex >= elementCount) {
+      errors.push(`Field ${i}: elementIndex ${elementIndex} out of range (0-${elementCount - 1})`);
     }
 
-    // Validate type
-    if (!validTypes.includes(field.type)) {
-      errors.push(`Field ${i}: invalid type "${field.type}"`);
+    // Validate fieldType
+    if (!validTypes.includes(field.fieldType)) {
+      errors.push(`Field ${i}: invalid fieldType "${field.fieldType}"`);
     }
 
     // Validate options for checkbox/radio
-    if ((field.type === 'checkbox' || field.type === 'radio') && field.options) {
+    if ((field.fieldType === 'checkbox' || field.fieldType === 'radio') && field.options) {
       if (!Array.isArray(field.options)) {
         errors.push(`Field ${i}: options must be an array`);
       } else {
@@ -264,12 +282,22 @@ function validateFields(fields, pageStructure) {
       }
     }
 
-    // Validate location for table fields
-    const element = pageStructure.elements?.[field.elementIndex];
-    if (element?.type === 'table' && field.location) {
+    // Validate row/col for table fields
+    const element = pageStructure.elements?.[elementIndex];
+    if (element?.type === 'table' && injectionPoint.position.row !== undefined) {
       const rowCount = element.rows?.length || 0;
-      if (field.location.row < 0 || field.location.row >= rowCount) {
-        errors.push(`Field ${i}: row ${field.location.row} out of range (0-${rowCount - 1})`);
+      if (injectionPoint.position.row < 0 || injectionPoint.position.row >= rowCount) {
+        errors.push(`Field ${i}: row ${injectionPoint.position.row} out of range (0-${rowCount - 1})`);
+      }
+    }
+
+    // Validate targetElementId for chained fields
+    if (injectionPoint.method === 'insertAfter' && injectionPoint.targetElementId) {
+      // Check that the referenced field exists earlier in the array
+      const referencedField = fields.slice(0, i).find(f => f.fieldName === injectionPoint.targetElementId);
+      if (!referencedField) {
+        // This is a warning, not an error - the field might be from a previous detection
+        console.warn(`Field ${i}: targetElementId "${injectionPoint.targetElementId}" not found in preceding fields`);
       }
     }
   }

@@ -187,9 +187,13 @@ function createRESTModel(model, options) {
             messageParts = [contents];
           }
 
-          // Add user message to history
+          // Detect if this is a function response
+          const isFunctionResponse = Array.isArray(contents) &&
+            contents.some(c => c.functionResponse);
+
+          // Add message to history with appropriate role
           this.history.push({
-            role: 'user',
+            role: isFunctionResponse ? 'function' : 'user',
             parts: messageParts,
           });
 

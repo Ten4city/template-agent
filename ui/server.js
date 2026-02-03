@@ -368,6 +368,11 @@ async function extractSelectedPages(job, selectedPages, context, model) {
     };
     job.progress = { message: 'Extraction complete' };
 
+    // Save structure to disk for debugging
+    const structurePath = path.join(job.jobDir, 'extracted-structure.json');
+    fs.writeFileSync(structurePath, JSON.stringify(documentStructure, null, 2));
+    console.log(`[Server] Structure saved to: ${structurePath}`);
+
     console.log(`[Server] Extraction complete (job: ${job.id})`);
   } catch (err) {
     console.error(`[Server] Extraction error (job: ${job.id}):`, err);

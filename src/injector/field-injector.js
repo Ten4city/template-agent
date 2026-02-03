@@ -1,15 +1,50 @@
 /**
  * Field Injector
  *
- * Takes detected fields and injects them into the structure.
- * Modifies table cells and paragraphs to include field objects.
+ * Takes detected fields with injection instructions and modifies the structure.
+ * Replaces target text with fields instead of appending alongside.
  */
+
+/**
+ * Track injected fields for chaining (fieldName -> generated ID)
+ */
+let injectedFieldIds = new Map();
+
+/**
+ * Generate unique field ID
+ */
+function generateFieldId() {
+  return String(Date.now() + Math.floor(Math.random() * 1000));
+}
+
+/**
+ * Build a field object with generated ID
+ */
+function buildFieldObject(field) {
+  const id = generateFieldId();
+
+  const fieldObj = {
+    type: field.fieldType,
+    id,
+    name: field.fieldName,
+  };
+
+  // Add options for checkbox/radio
+  if (field.options && (field.fieldType === 'checkbox' || field.fieldType === 'radio')) {
+    fieldObj.options = field.options;
+  }
+
+  // Track for chaining
+  injectedFieldIds.set(field.fieldName, id);
+
+  return fieldObj;
+}
 
 /**
  * Inject fields into a page structure
  *
  * @param {Object} pageStructure - The page structure to modify
- * @param {Array} fields - Array of detected fields
+ * @param {Array} fields - Array of detected fields (new format with injectionPoint)
  * @returns {Object} Updated page structure with fields injected
  */
 export function injectFields(pageStructure, fields) {
@@ -17,33 +52,45 @@ export function injectFields(pageStructure, fields) {
     return pageStructure;
   }
 
+  // Reset tracking for new injection session
+  injectedFieldIds = new Map();
+
   // Deep clone the structure to avoid mutation
   const structure = JSON.parse(JSON.stringify(pageStructure));
 
-  // Group fields by elementIndex for efficient processing
-  const fieldsByElement = {};
+  // Process fields in order (important for chaining)
   for (const field of fields) {
-    if (!fieldsByElement[field.elementIndex]) {
-      fieldsByElement[field.elementIndex] = [];
-    }
-    fieldsByElement[field.elementIndex].push(field);
-  }
-
-  // Process each element that has fields
-  for (const elementIndex of Object.keys(fieldsByElement)) {
-    const idx = parseInt(elementIndex, 10);
-    const element = structure.elements[idx];
-    const elementFields = fieldsByElement[idx];
-
-    if (!element) {
-      console.warn(`[FieldInjector] Element ${idx} not found, skipping fields`);
+    if (!field.injectionPoint) {
+      console.warn(`[FieldInjector] Field missing injectionPoint:`, field.fieldName);
       continue;
     }
 
+    const { injectionPoint } = field;
+    const { position, method, target, targetElementId } = injectionPoint;
+
+    if (!position || position.elementIndex === undefined) {
+      console.warn(`[FieldInjector] Field missing position:`, field.fieldName);
+      continue;
+    }
+
+    const elementIndex = position.elementIndex;
+    const element = structure.elements[elementIndex];
+
+    if (!element) {
+      console.warn(`[FieldInjector] Element ${elementIndex} not found, skipping field: ${field.fieldName}`);
+      continue;
+    }
+
+    // Build field object with generated ID
+    const fieldObj = buildFieldObject(field);
+
+    // Dispatch based on element type and method
     if (element.type === 'table') {
-      injectTableFields(element, elementFields);
+      injectTableField(element, field, fieldObj, method, target, position, targetElementId);
     } else if (element.type === 'paragraph') {
-      injectParagraphFields(structure.elements, idx, elementFields);
+      injectParagraphField(element, field, fieldObj, method, target, targetElementId);
+    } else {
+      console.warn(`[FieldInjector] Unsupported element type: ${element.type}`);
     }
   }
 
@@ -51,109 +98,204 @@ export function injectFields(pageStructure, fields) {
 }
 
 /**
- * Inject fields into a table element
+ * Inject a field into a table cell
  */
-function injectTableFields(element, fields) {
-  for (const field of fields) {
-    if (!field.location) {
-      console.warn(`[FieldInjector] Table field missing location:`, field);
-      continue;
-    }
+function injectTableField(element, field, fieldObj, method, target, position, targetElementId) {
+  const { row, col } = position;
 
-    const { row, col } = field.location;
-
-    if (!element.rows[row]) {
-      console.warn(`[FieldInjector] Row ${row} not found in table`);
-      continue;
-    }
-
-    if (col >= element.rows[row].length) {
-      console.warn(`[FieldInjector] Col ${col} not found in row ${row}`);
-      continue;
-    }
-
-    // Get current cell value
-    const currentCell = element.rows[row][col];
-
-    // Build field object
-    const fieldObj = buildFieldObject(field);
-
-    // Replace cell with field object or merge with existing cell object
-    if (currentCell === null) {
-      // Cell covered by rowspan, skip
-      console.warn(`[FieldInjector] Cell [${row}][${col}] is null (rowspan), skipping`);
-      continue;
-    }
-
-    if (typeof currentCell === 'string') {
-      // String cell - replace with object containing field
-      element.rows[row][col] = {
-        text: currentCell,
-        field: fieldObj,
-      };
-    } else if (typeof currentCell === 'object' && currentCell !== null) {
-      // Object cell - add field property
-      currentCell.field = fieldObj;
-    }
-  }
-}
-
-/**
- * Inject fields into a paragraph element
- * For inline fields, split paragraph into content array
- */
-function injectParagraphFields(elements, elementIndex, fields) {
-  const element = elements[elementIndex];
-
-  // For now, only handle the first inline field in a paragraph
-  // Multiple inline fields would require more complex splitting
-  const inlineField = fields.find((f) => f.splitParagraph);
-
-  if (!inlineField) {
-    // No inline fields, just add field to paragraph
-    const fieldObj = buildFieldObject(fields[0]);
-    element.field = fieldObj;
+  if (row === undefined || col === undefined) {
+    console.warn(`[FieldInjector] Table field missing row/col:`, field.fieldName);
     return;
   }
 
-  // Split paragraph into content array
-  const { before, after } = inlineField.splitParagraph;
-  const fieldObj = buildFieldObject(inlineField);
-
-  // Transform paragraph from text to content array
-  element.content = [];
-
-  if (before && before.trim()) {
-    element.content.push(before);
+  if (!element.rows[row]) {
+    console.warn(`[FieldInjector] Row ${row} not found in table`);
+    return;
   }
 
-  element.content.push({ field: fieldObj });
-
-  if (after && after.trim()) {
-    element.content.push(after);
+  if (col >= element.rows[row].length) {
+    console.warn(`[FieldInjector] Col ${col} not found in row ${row}`);
+    return;
   }
 
-  // Remove text property since we now use content
-  delete element.text;
-  delete element.blockIndex;
+  const currentCell = element.rows[row][col];
+
+  if (currentCell === null) {
+    console.warn(`[FieldInjector] Cell [${row}][${col}] is null (rowspan), skipping`);
+    return;
+  }
+
+  // Get current text content
+  let cellText = '';
+  if (typeof currentCell === 'string') {
+    cellText = currentCell;
+  } else if (typeof currentCell === 'object' && currentCell !== null) {
+    cellText = currentCell.text || '';
+  }
+
+  if (method === 'replace') {
+    // Replace target text with empty, add field
+    let newText = cellText;
+    if (target && target.trim()) {
+      newText = cellText.replace(target, '').trim();
+    } else {
+      // If target is empty/whitespace, clear the cell
+      newText = '';
+    }
+
+    if (typeof currentCell === 'string') {
+      element.rows[row][col] = {
+        text: newText,
+        field: fieldObj,
+      };
+    } else {
+      currentCell.text = newText;
+      currentCell.field = fieldObj;
+    }
+  } else if (method === 'insertAfter') {
+    // Keep text, add field after
+    // If chaining (targetElementId), this is a subsequent field in a group
+    if (typeof currentCell === 'string') {
+      element.rows[row][col] = {
+        text: cellText,
+        field: fieldObj,
+      };
+    } else {
+      // If there's already a field, we need to handle multiple fields
+      // For now, convert to content array or add to existing fields array
+      if (currentCell.field) {
+        // Multiple fields in same cell - convert field to fields array
+        if (!currentCell.fields) {
+          currentCell.fields = [currentCell.field];
+          delete currentCell.field;
+        }
+        currentCell.fields.push(fieldObj);
+      } else {
+        currentCell.field = fieldObj;
+      }
+    }
+  } else if (method === 'insertBefore') {
+    // Similar to insertAfter but field comes before content
+    if (typeof currentCell === 'string') {
+      element.rows[row][col] = {
+        text: cellText,
+        field: fieldObj,
+        fieldPosition: 'before',
+      };
+    } else {
+      currentCell.field = fieldObj;
+      currentCell.fieldPosition = 'before';
+    }
+  }
 }
 
 /**
- * Build a field object with ID
+ * Inject a field into a paragraph
  */
-function buildFieldObject(field) {
-  const fieldObj = {
-    type: field.type,
-    id: String(Date.now() + Math.floor(Math.random() * 1000)), // Unique ID
-    name: field.name,
-  };
+function injectParagraphField(element, field, fieldObj, method, target, targetElementId) {
+  const text = element.text || '';
 
-  // Add options for checkbox/radio
-  if (field.options && (field.type === 'checkbox' || field.type === 'radio')) {
-    fieldObj.options = field.options;
+  if (method === 'replace') {
+    if (target && target.trim()) {
+      // Find and replace target with field
+      const targetIndex = text.indexOf(target);
+
+      if (targetIndex !== -1) {
+        const before = text.substring(0, targetIndex).trim();
+        const after = text.substring(targetIndex + target.length).trim();
+
+        // Convert to content array
+        element.content = [];
+        if (before) {
+          element.content.push(before);
+        }
+        element.content.push({ field: fieldObj });
+        if (after) {
+          element.content.push(after);
+        }
+
+        // Remove original text property
+        delete element.text;
+      } else {
+        // Target not found, add field at end
+        console.warn(`[FieldInjector] Target "${target}" not found in paragraph, adding field at end`);
+        element.field = fieldObj;
+      }
+    } else {
+      // No target, replace entire text with field
+      element.content = [{ field: fieldObj }];
+      delete element.text;
+    }
+  } else if (method === 'insertAfter') {
+    const { anchorText } = field.injectionPoint;
+
+    if (anchorText && text.includes(anchorText)) {
+      // Find anchor and insert field after it
+      const anchorIndex = text.indexOf(anchorText);
+      const before = text.substring(0, anchorIndex + anchorText.length);
+      const after = text.substring(anchorIndex + anchorText.length).trim();
+
+      element.content = [];
+      if (before) {
+        element.content.push(before);
+      }
+      element.content.push({ field: fieldObj });
+      if (after) {
+        element.content.push(after);
+      }
+
+      delete element.text;
+    } else if (targetElementId) {
+      // Chaining - add field after previous field
+      // This requires the previous field to be in the same element
+      if (element.content && Array.isArray(element.content)) {
+        // Find the previous field and insert after it
+        const prevFieldIndex = element.content.findIndex(
+          (item) => typeof item === 'object' && item.field &&
+                   injectedFieldIds.get(targetElementId) === item.field.id
+        );
+
+        if (prevFieldIndex !== -1) {
+          element.content.splice(prevFieldIndex + 1, 0, { field: fieldObj });
+        } else {
+          // Previous field not found in this element, add at end
+          element.content.push({ field: fieldObj });
+        }
+      } else {
+        // No content array yet, add field
+        element.field = fieldObj;
+      }
+    } else {
+      // No anchor text and no chaining, add field at end
+      element.field = fieldObj;
+    }
+  } else if (method === 'insertBefore') {
+    const { anchorText } = field.injectionPoint;
+
+    if (anchorText && text.includes(anchorText)) {
+      const anchorIndex = text.indexOf(anchorText);
+      const before = text.substring(0, anchorIndex).trim();
+      const after = text.substring(anchorIndex);
+
+      element.content = [];
+      if (before) {
+        element.content.push(before);
+      }
+      element.content.push({ field: fieldObj });
+      if (after) {
+        element.content.push(after);
+      }
+
+      delete element.text;
+    } else {
+      // No anchor, add field at beginning
+      element.content = [{ field: fieldObj }];
+      if (text) {
+        element.content.push(text);
+      }
+      delete element.text;
+    }
   }
-
-  return fieldObj;
 }
 
 /**
@@ -161,7 +303,7 @@ function buildFieldObject(field) {
  *
  * @param {Object} documentStructure - Full document with pages array
  * @param {number} pageNumber - Which page to inject fields into (1-based)
- * @param {Array} fields - Detected fields for that page
+ * @param {Array} fields - Detected fields for that page (new format)
  * @returns {Object} Updated document structure
  */
 export function injectFieldsIntoDocument(documentStructure, pageNumber, fields) {

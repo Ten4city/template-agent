@@ -203,11 +203,57 @@ If a layout is too complex to represent cleanly, simplify:
 - Use descriptive text instead of recreating exact checkbox layout
 - Prioritize readability over pixel-perfect structure
 
-### Lists
-Bulleted or numbered lists can be:
-- A single cell with line breaks in text
-- A 2-column table (number/bullet column + text column)
-- A paragraph element
+### Lists - ALWAYS use tables
+
+Convert ALL lists (numbered, bulleted, lettered) into tables. Never use paragraph with line breaks.
+
+**IMPORTANT: Add "listStyle": true to all list tables.** This enables proper column sizing.
+
+**Column count = max nesting depth + 2**
+- Simple list (no nesting): 2 columns
+- 1 level nested (i, ii under 1, 2): 3 columns
+- 2 levels nested: 4 columns
+- And so on...
+
+**Structure:**
+- Number/bullet goes in its own column (left-aligned or centered)
+- Content goes in the rightmost column(s)
+- Empty cells create indentation for nested items
+- Dividers like "OR" span all columns
+
+**Example - List with sub-items (3 columns):**
+\`\`\`
+1. First item
+2. Second item
+   OR
+3. Third item
+   i. Sub-item one
+   ii. Sub-item two
+\`\`\`
+
+Becomes:
+\`\`\`json
+{
+  "type": "table",
+  "columns": 3,
+  "bordered": false,
+  "listStyle": true,
+  "rows": [
+    ["1.", {"text": "First item", "colspan": 2}],
+    ["2.", {"text": "Second item", "colspan": 2}],
+    [{"text": "OR", "colspan": 3}],
+    ["3.", {"text": "Third item", "colspan": 2}],
+    ["", "i.", "Sub-item one"],
+    ["", "ii.", "Sub-item two"]
+  ]
+}
+\`\`\`
+
+**Key rules:**
+- Main items: number in col 1, content spans remaining columns
+- Sub-items: empty col 1, sub-number in col 2, content in remaining
+- Further nesting: add more empty columns on left
+- Dividers/breaks: span all columns with colspan
 
 ---
 

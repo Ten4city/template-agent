@@ -8,7 +8,7 @@ import {
   Box,
   useMantineTheme,
 } from '@mantine/core';
-import { IconRefresh, IconAlertCircle, IconUpload, IconScan } from '@tabler/icons-react';
+import { IconRefresh, IconAlertCircle, IconUpload, IconScan, IconDownload } from '@tabler/icons-react';
 import SelectablePreview from './components/SelectablePreview';
 import ChatPanel from './components/ChatPanel';
 import DiffPreview from './components/DiffPreview';
@@ -327,6 +327,34 @@ function App() {
     ]);
   };
 
+  // Download HTML
+  const handleDownloadHtml = () => {
+    if (!html) return;
+    const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Extracted Document</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 11px; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+    td { padding: 4px 8px; vertical-align: top; }
+  </style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'extracted-document.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Render upload phase (with optional shortcut to existing structure)
   if (appPhase === 'upload') {
     return (
@@ -499,6 +527,16 @@ function App() {
               onClick={checkExistingStructure}
             >
               Reload
+            </Button>
+            <Button
+              variant="subtle"
+              color="blue"
+              size="sm"
+              leftSection={<IconDownload size={16} />}
+              onClick={handleDownloadHtml}
+              disabled={!html}
+            >
+              Download HTML
             </Button>
           </Group>
         </Group>

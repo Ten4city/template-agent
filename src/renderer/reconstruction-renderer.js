@@ -207,10 +207,23 @@ function renderCell(cell, bordered = false, elementIndex = 0, rowIndex = 0, colI
     const text = cell.text || '';
     let displayValue = escapeHtml(text).replace(/\n/g, '<br>');
 
-    // If cell has a field, render the field after the text
+    // Render field(s) - handle single field, fields array, and position
+    let fieldHtml = '';
     if (cell.field) {
-      const fieldHtml = renderField(cell.field);
-      displayValue = displayValue ? `${displayValue} ${fieldHtml}` : fieldHtml;
+      fieldHtml = renderField(cell.field);
+    } else if (cell.fields && Array.isArray(cell.fields)) {
+      // Multiple fields in same cell (e.g., radio group)
+      fieldHtml = cell.fields.map(f => renderField(f)).join(' ');
+    }
+
+    if (fieldHtml) {
+      if (cell.fieldPosition === 'before') {
+        // Field before text
+        displayValue = displayValue ? `${fieldHtml} ${displayValue}` : fieldHtml;
+      } else {
+        // Field after text (default)
+        displayValue = displayValue ? `${displayValue} ${fieldHtml}` : fieldHtml;
+      }
     }
 
     const attrs = [dataAttrs];
@@ -313,8 +326,9 @@ function renderTable(element, elementIndex) {
   const borderAttr = bordered ? 'border="1"' : 'border="0"';
   const cellPadding = element.cellPadding || '0';
   const cellSpacing = element.cellSpacing || '0';
+  const listClass = element.listStyle ? ' list-table' : '';
 
-  return `<table class="selectable" data-element-index="${elementIndex}" data-element-type="table" ${borderAttr} cellpadding="${cellPadding}" cellspacing="${cellSpacing}" style="${buildStyleString(tableStyle)}">
+  return `<table class="selectable${listClass}" data-element-index="${elementIndex}" data-element-type="table" ${borderAttr} cellpadding="${cellPadding}" cellspacing="${cellSpacing}" style="${buildStyleString(tableStyle)}">
 ${rowsHtml}
 </table>`;
 }
