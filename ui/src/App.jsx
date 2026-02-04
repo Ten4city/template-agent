@@ -6,6 +6,7 @@ import {
   Button,
   Alert,
   Box,
+  Menu,
   useMantineTheme,
 } from '@mantine/core';
 import { IconRefresh, IconAlertCircle, IconUpload, IconScan, IconDownload, IconCode, IconEdit } from '@tabler/icons-react';
@@ -198,6 +199,18 @@ function App() {
       setError('Field detection failed: ' + err.message);
     } finally {
       setIsDetectingFields(false);
+    }
+  };
+
+  // Detect fields on all pages
+  const handleDetectAllFields = async () => {
+    if (!structure?.pages || structure.pages.length === 0) {
+      setError('No pages to detect fields on');
+      return;
+    }
+
+    for (const page of structure.pages) {
+      await handleDetectFields(page.pageNumber);
     }
   };
 
@@ -501,21 +514,37 @@ ${html}
             Template Editor
           </Title>
           <Group gap="sm">
-            {/* Field detection buttons per page */}
-            {structure?.pages?.map((page) => (
-              <Button
-                key={page.pageNumber}
-                variant="light"
-                color="blue"
-                size="sm"
-                leftSection={<IconScan size={16} />}
-                onClick={() => handleDetectFields(page.pageNumber)}
-                loading={isDetectingFields}
-                disabled={isDetectingFields || !jobId}
-              >
-                Detect Fields (Page {page.pageNumber})
-              </Button>
-            ))}
+            {/* Field detection dropdown */}
+            {structure?.pages?.length > 0 && (
+              <Menu>
+                <Menu.Target>
+                  <Button
+                    variant="light"
+                    color="blue"
+                    size="sm"
+                    leftSection={<IconScan size={16} />}
+                    loading={isDetectingFields}
+                    disabled={isDetectingFields || !jobId}
+                  >
+                    Detect Fields
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item onClick={handleDetectAllFields}>
+                    All Pages ({structure.pages.length})
+                  </Menu.Item>
+                  <Menu.Divider />
+                  {structure.pages.map((page) => (
+                    <Menu.Item
+                      key={page.pageNumber}
+                      onClick={() => handleDetectFields(page.pageNumber)}
+                    >
+                      Page {page.pageNumber}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            )}
             {editingMode === 'json' ? (
               <Button
                 variant="light"

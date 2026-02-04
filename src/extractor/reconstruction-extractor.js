@@ -209,47 +209,112 @@ ${blockPreview || 'No text blocks available'}
  * @param {string[]} imagePaths - Array of image paths to process
  * @param {Object} options - Extraction options
  * @param {string} [options.context] - Additional context from user to append to system prompt
- * @param {function} [options.onPageComplete] - Callback (pageNum, totalPages) called after each page
+ * @param {function} [options.onPageComplete] - Callback (completedCount, totalPages) called after each page
  * @param {Array} [options.textBlocksByPage] - Text blocks for each page
  * @param {boolean} [options.verbose] - Enable verbose logging
+ * @param {number} [options.concurrency] - Max pages to process in parallel (default: 100)
  */
 export async function extractDocumentStructure(imagePaths, options = {}) {
-  const { textBlocksByPage = [], verbose = false, context, onPageComplete } = options;
+  const { textBlocksByPage = [], verbose = false, context, onPageComplete, concurrency = 100 } = options;
   const pageResults = [];
   const pages = [];
+  let completedCount = 0;
 
-  for (let i = 0; i < imagePaths.length; i++) {
-    const pageNumber = i + 1;
+  if (verbose) {
+    console.log(`\n[Parallel Extraction] Processing ${imagePaths.length} pages with concurrency ${concurrency}`);
+  }
+
+  // Process pages in batches
+  for (let batchStart = 0; batchStart < imagePaths.length; batchStart += concurrency) {
+    const batchEnd = Math.min(batchStart + concurrency, imagePaths.length);
+    const batchPaths = imagePaths.slice(batchStart, batchEnd);
 
     if (verbose) {
       console.log(`\n${'='.repeat(50)}`);
-      console.log(`Processing Page ${pageNumber} of ${imagePaths.length}`);
+      console.log(`Processing batch: pages ${batchStart + 1}-${batchEnd} of ${imagePaths.length}`);
       console.log('='.repeat(50));
     }
 
-    const textBlocks = textBlocksByPage[i] || [];
+    // Process batch in parallel with retry logic
+    const batchPromises = batchPaths.map(async (imagePath, batchIndex) => {
+      const pageNumber = batchStart + batchIndex + 1;
+      const textBlocks = textBlocksByPage[pageNumber - 1] || [];
+      const maxRetries = 3;
 
-    const result = await extractPageStructure(imagePaths[i], {
-      ...options,
-      pageNumber,
-      textBlocks,
-      context,
+      if (verbose) {
+        console.log(`  Starting page ${pageNumber}...`);
+      }
+
+      let lastError;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await extractPageStructure(imagePath, {
+            ...options,
+            pageNumber,
+            textBlocks,
+            context,
+          });
+
+          // Update progress (thread-safe increment)
+          completedCount++;
+          if (onPageComplete) {
+            onPageComplete(completedCount, imagePaths.length);
+          }
+
+          if (verbose) {
+            console.log(`  Completed page ${pageNumber} (${completedCount}/${imagePaths.length})`);
+          }
+
+          return {
+            page: pageNumber,
+            ...result,
+          };
+        } catch (error) {
+          lastError = error;
+          if (verbose) {
+            console.log(`  Page ${pageNumber} attempt ${attempt} failed: ${error.message}`);
+          }
+          if (attempt < maxRetries) {
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        }
+      }
+
+      // All retries failed
+      if (verbose) {
+        console.log(`  Page ${pageNumber} failed after ${maxRetries} attempts`);
+      }
+      return {
+        page: pageNumber,
+        pageStructure: null,
+        success: false,
+        error: lastError?.message || 'Unknown error',
+      };
     });
 
-    pageResults.push({
-      page: pageNumber,
-      ...result,
-    });
+    const batchResults = await Promise.allSettled(batchPromises);
 
-    if (result.pageStructure) {
-      pages.push(result.pageStructure);
-    }
-
-    // Call progress callback
-    if (onPageComplete) {
-      onPageComplete(pageNumber, imagePaths.length);
+    // Add results maintaining page order (handle Promise.allSettled format)
+    for (const settled of batchResults) {
+      if (settled.status === 'fulfilled') {
+        const result = settled.value;
+        pageResults.push(result);
+        if (result.pageStructure) {
+          pages.push(result.pageStructure);
+        }
+      } else {
+        // Promise rejected (shouldn't happen with our try-catch, but just in case)
+        if (verbose) {
+          console.log(`  Batch item rejected: ${settled.reason?.message || 'Unknown'}`);
+        }
+      }
     }
   }
+
+  // Sort pages by pageNumber to ensure correct order
+  pages.sort((a, b) => a.pageNumber - b.pageNumber);
+  pageResults.sort((a, b) => a.page - b.page);
 
   return {
     documentStructure: {

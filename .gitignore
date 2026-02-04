@@ -5,3 +5,7 @@ node_modules/
 service-account.json
 *-render/
 *-output.html
+
+# Output directories
+src/output/
+ui/uploads/
