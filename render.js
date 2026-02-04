@@ -12,8 +12,15 @@ import path from "path";
 
 const execAsync = promisify(exec);
 
-const SOFFICE_PATH = "/Applications/LibreOffice.app/Contents/MacOS/soffice";
-const PDFTOCAIRO_PATH = "/opt/homebrew/bin/pdftocairo";
+// Use environment variables with platform-specific defaults
+const SOFFICE_PATH = process.env.SOFFICE_PATH ||
+  (process.platform === 'darwin'
+    ? "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+    : "/usr/bin/soffice");
+const PDFTOCAIRO_PATH = process.env.PDFTOCAIRO_PATH ||
+  (process.platform === 'darwin'
+    ? "/opt/homebrew/bin/pdftocairo"
+    : "/usr/bin/pdftocairo");
 
 /**
  * Convert Word document to PDF using LibreOffice

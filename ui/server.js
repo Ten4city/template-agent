@@ -643,6 +643,20 @@ app.get('/api/edit-stats/:jobId', (req, res) => {
   res.json(stats);
 });
 
+// In production, serve the built frontend
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, 'dist');
+  app.use(express.static(distPath));
+
+  // Handle SPA routing - serve index.html for non-API routes
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {

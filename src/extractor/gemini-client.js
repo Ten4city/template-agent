@@ -10,7 +10,8 @@ import { VertexAI } from '@google-cloud/vertexai';
 import { GoogleAuth } from 'google-auth-library';
 import fs from 'fs';
 
-const SERVICE_ACCOUNT_PATH = '/Users/ritik/Downloads/internal-operations-461404-316ec7fe1406 (3).json';
+// Service account: from GOOGLE_CREDENTIALS env var (JSON string) or file path
+const SERVICE_ACCOUNT_PATH = process.env.SERVICE_ACCOUNT_PATH || './service-account.json';
 
 // Cache for clients
 let sdkClient = null;
@@ -22,7 +23,13 @@ let serviceAccount = null;
  */
 function getServiceAccount() {
   if (!serviceAccount) {
-    serviceAccount = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf-8'));
+    // First try environment variable (for cloud deployments)
+    if (process.env.GOOGLE_CREDENTIALS) {
+      serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    } else {
+      // Fall back to file (for local development)
+      serviceAccount = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf-8'));
+    }
   }
   return serviceAccount;
 }
