@@ -15,7 +15,8 @@ import {
 } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
 
-const API_URL = 'http://localhost:3001';
+// API base URL - use env var for local dev, empty for production (relative URLs)
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function PageSelection({ images, onStartExtraction, onBack }) {
   const [selectedPages, setSelectedPages] = useState(images.map((i) => i.page));
