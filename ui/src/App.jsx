@@ -19,8 +19,8 @@ import PageSelection from './components/PageSelection';
 import ProcessingStatus from './components/ProcessingStatus';
 import './App.css';
 
-// API base URL - empty for relative URLs (works both locally and in production)
-const API_URL = '';
+// API base URL - use env var for local dev, empty for production (relative URLs)
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 function App() {
   const theme = useMantineTheme();
