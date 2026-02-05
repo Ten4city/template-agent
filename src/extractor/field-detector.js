@@ -52,16 +52,23 @@ function convertToolsToGemini(tools) {
  * Create Gemini client with Vertex AI
  */
 function createGeminiClient() {
-  if (!process.env.GOOGLE_CREDENTIALS) {
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = SERVICE_ACCOUNT_PATH;
-  }
-
   const sa = getServiceAccount();
 
-  return new VertexAI({
-    project: sa.project_id,
-    location: 'us-central1',
-  });
+  if (process.env.GOOGLE_CREDENTIALS) {
+    return new VertexAI({
+      project: sa.project_id,
+      location: 'us-central1',
+      googleAuthOptions: {
+        credentials: sa,
+      },
+    });
+  } else {
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = SERVICE_ACCOUNT_PATH;
+    return new VertexAI({
+      project: sa.project_id,
+      location: 'us-central1',
+    });
+  }
 }
 
 /**
