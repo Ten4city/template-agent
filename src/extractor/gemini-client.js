@@ -39,12 +39,24 @@ function getServiceAccount() {
  */
 function getSDKClient() {
   if (!sdkClient) {
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = SERVICE_ACCOUNT_PATH;
     const sa = getServiceAccount();
-    sdkClient = new VertexAI({
-      project: sa.project_id,
-      location: 'us-central1',
-    });
+
+    // If using env var, pass credentials directly; otherwise use file
+    if (process.env.GOOGLE_CREDENTIALS) {
+      sdkClient = new VertexAI({
+        project: sa.project_id,
+        location: 'us-central1',
+        googleAuthOptions: {
+          credentials: sa,
+        },
+      });
+    } else {
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = SERVICE_ACCOUNT_PATH;
+      sdkClient = new VertexAI({
+        project: sa.project_id,
+        location: 'us-central1',
+      });
+    }
   }
   return sdkClient;
 }
@@ -54,10 +66,20 @@ function getSDKClient() {
  */
 async function getRESTAuth() {
   if (!restAuth) {
-    restAuth = new GoogleAuth({
-      keyFile: SERVICE_ACCOUNT_PATH,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    });
+    const sa = getServiceAccount();
+
+    // If using env var, pass credentials directly; otherwise use file
+    if (process.env.GOOGLE_CREDENTIALS) {
+      restAuth = new GoogleAuth({
+        credentials: sa,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+      });
+    } else {
+      restAuth = new GoogleAuth({
+        keyFile: SERVICE_ACCOUNT_PATH,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+      });
+    }
   }
   return restAuth;
 }
