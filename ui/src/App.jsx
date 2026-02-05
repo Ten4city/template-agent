@@ -209,9 +209,61 @@ function App() {
       return;
     }
 
-    for (const page of structure.pages) {
-      await handleDetectFields(page.pageNumber);
+    setIsDetectingFields(true);
+    setError(null);
+
+    // Track structure locally to avoid stale closure issue
+    let currentStructure = structure;
+
+    for (const page of currentStructure.pages) {
+      try {
+        const res = await fetch(`${API_URL}/api/detect-fields`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId,
+            pageNumber: page.pageNumber,
+            structure: currentStructure,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+          setError(data.error);
+          continue;
+        }
+
+        if (data.updatedStructure) {
+          // Update local tracker AND React state
+          currentStructure = data.updatedStructure;
+          setStructure(currentStructure);
+          setHtml(data.html);
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              type: 'summary',
+              content: `Detected ${data.fields?.length || 0} field(s) on page ${page.pageNumber}`,
+            },
+          ]);
+        } else if (data.message) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              type: 'summary',
+              content: data.message,
+            },
+          ]);
+        }
+      } catch (err) {
+        setError(`Field detection failed for page ${page.pageNumber}: ${err.message}`);
+      }
     }
+
+    setIsDetectingFields(false);
   };
 
   // Editor handlers
