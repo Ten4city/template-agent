@@ -52,6 +52,9 @@ export default function SelectablePreview({ html, selection, onSelect }) {
     }
   }, [selection, html]);
 
+  // Element types that have editing tools available
+  const EDITABLE_TYPES = ['table', 'header'];
+
   const handleClick = (e) => {
     const cell = e.target.closest('.selectable-cell');
     const element = e.target.closest('.selectable');
@@ -66,6 +69,12 @@ export default function SelectablePreview({ html, selection, onSelect }) {
 
     // Get page number from parent .page container
     const pageNumber = page ? parseInt(page.dataset.page, 10) : 1;
+    const elementType = element.dataset.elementType;
+
+    // Only allow selection for editable element types
+    if (!EDITABLE_TYPES.includes(elementType)) {
+      return; // Ignore clicks on non-editable elements (paragraphs)
+    }
 
     if (cell && element) {
       const row = parseInt(cell.dataset.row, 10);
@@ -102,9 +111,8 @@ export default function SelectablePreview({ html, selection, onSelect }) {
         });
       }
     } else if (element) {
-      // Element click (header, table, paragraph)
+      // Element click (header, table)
       const elementIndex = parseInt(element.dataset.elementIndex, 10);
-      const elementType = element.dataset.elementType;
 
       setLastCellClick(null);
       onSelect({
@@ -119,12 +127,16 @@ export default function SelectablePreview({ html, selection, onSelect }) {
   const handleDoubleClick = (e) => {
     // Double-click on table = select whole table (not cell)
     const element = e.target.closest('.selectable');
+    const page = e.target.closest('.page');
+
     if (element && element.dataset.elementType === 'table') {
       const elementIndex = parseInt(element.dataset.elementIndex, 10);
+      const pageNumber = page ? parseInt(page.dataset.page, 10) : 1;
 
       setLastCellClick(null);
       onSelect({
         type: 'element',
+        pageNumber,
         elementIndex,
         elementType: 'table',
       });
@@ -148,13 +160,27 @@ export default function SelectablePreview({ html, selection, onSelect }) {
       <style>{`
         .preview-inner .selectable {
           transition: all 0.15s ease;
-          cursor: pointer;
           border-radius: 4px;
         }
-        .preview-inner .selectable:hover {
+        /* Editable elements (tables, headers) - blue hover, pointer cursor */
+        .preview-inner .selectable[data-element-type="table"],
+        .preview-inner .selectable[data-element-type="header"] {
+          cursor: pointer;
+        }
+        .preview-inner .selectable[data-element-type="table"]:hover,
+        .preview-inner .selectable[data-element-type="header"]:hover {
           outline: 2px solid ${theme.colors.blue[5]};
           outline-offset: 2px;
           box-shadow: 0 0 12px ${theme.colors.blue[5]}40;
+        }
+        /* Non-editable elements (paragraphs) - gray hover, default cursor */
+        .preview-inner .selectable[data-element-type="paragraph"] {
+          cursor: default;
+        }
+        .preview-inner .selectable[data-element-type="paragraph"]:hover {
+          outline: 2px dashed ${theme.colors.gray[4]};
+          outline-offset: 2px;
+          opacity: 0.7;
         }
         .preview-inner .selectable.selected {
           outline: 2px solid ${theme.colors.blue[6]};

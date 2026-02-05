@@ -141,6 +141,13 @@ export async function runEditAgent(structure, selection, userPrompt, options = {
   if (verbose) {
     console.log('[EditAgent] Starting edit session');
     console.log(`[EditAgent] User prompt: ${userPrompt}`);
+    console.log(`[EditAgent] Pages in structure: ${structure.pages.map(p => p.pageNumber).join(', ')}`);
+    console.log(`[EditAgent] Selection: pageNumber=${selection.pageNumber}, elementIndex=${selection.elementIndex}`);
+    const debugPage = structure.pages.find(p => p.pageNumber === (selection.pageNumber || 1));
+    console.log(`[EditAgent] Found page: ${debugPage ? debugPage.pageNumber : 'none'}, elements: ${debugPage?.elements?.length || 0}`);
+    if (debugPage?.elements?.[selection.elementIndex]) {
+      console.log(`[EditAgent] Element type: ${debugPage.elements[selection.elementIndex].type}`);
+    }
   }
 
   // Start chat session
