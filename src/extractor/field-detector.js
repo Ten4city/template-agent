@@ -16,7 +16,26 @@ import {
 } from './prompt-field-detection.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const serviceAccountPath = '/Users/ritik/Downloads/internal-operations-461404-316ec7fe1406 (3).json';
+
+// Service account: from GOOGLE_CREDENTIALS env var (JSON string) or file path
+const SERVICE_ACCOUNT_PATH = process.env.SERVICE_ACCOUNT_PATH || './service-account.json';
+
+// Cache for service account
+let serviceAccount = null;
+
+/**
+ * Get service account data
+ */
+function getServiceAccount() {
+  if (!serviceAccount) {
+    if (process.env.GOOGLE_CREDENTIALS) {
+      serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    } else {
+      serviceAccount = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf-8'));
+    }
+  }
+  return serviceAccount;
+}
 
 /**
  * Convert tool definitions to Gemini function declarations
@@ -33,11 +52,14 @@ function convertToolsToGemini(tools) {
  * Create Gemini client with Vertex AI
  */
 function createGeminiClient() {
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = serviceAccountPath;
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf-8'));
+  if (!process.env.GOOGLE_CREDENTIALS) {
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = SERVICE_ACCOUNT_PATH;
+  }
+
+  const sa = getServiceAccount();
 
   return new VertexAI({
-    project: serviceAccount.project_id,
+    project: sa.project_id,
     location: 'us-central1',
   });
 }

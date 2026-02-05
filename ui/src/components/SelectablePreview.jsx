@@ -26,12 +26,20 @@ export default function SelectablePreview({ html, selection, onSelect }) {
 
     // Apply current selection highlighting
     if (selection) {
+      // Scope to the correct page
+      const pageSelector = selection.pageNumber
+        ? `.page[data-page="${selection.pageNumber}"]`
+        : '.page';
+      const pageContainer = container.querySelector(pageSelector);
+
+      if (!pageContainer) return;
+
       if (selection.type === 'element') {
-        const el = container.querySelector(`[data-element-index="${selection.elementIndex}"]`);
+        const el = pageContainer.querySelector(`[data-element-index="${selection.elementIndex}"]`);
         if (el) el.classList.add('selected');
       } else if (selection.type === 'cell') {
         // Highlight all cells in range
-        const table = container.querySelector(`[data-element-index="${selection.elementIndex}"]`);
+        const table = pageContainer.querySelector(`[data-element-index="${selection.elementIndex}"]`);
         if (table) {
           for (let r = selection.startRow; r <= selection.endRow; r++) {
             for (let c = selection.startCol; c <= selection.endCol; c++) {
@@ -47,6 +55,7 @@ export default function SelectablePreview({ html, selection, onSelect }) {
   const handleClick = (e) => {
     const cell = e.target.closest('.selectable-cell');
     const element = e.target.closest('.selectable');
+    const page = e.target.closest('.page');
 
     // Click outside any element = deselect
     if (!element) {
@@ -55,13 +64,16 @@ export default function SelectablePreview({ html, selection, onSelect }) {
       return;
     }
 
+    // Get page number from parent .page container
+    const pageNumber = page ? parseInt(page.dataset.page, 10) : 1;
+
     if (cell && element) {
       const row = parseInt(cell.dataset.row, 10);
       const col = parseInt(cell.dataset.col, 10);
       const elementIndex = parseInt(element.dataset.elementIndex, 10);
 
-      // Shift+click = range selection
-      if (e.shiftKey && lastCellClick && lastCellClick.elementIndex === elementIndex) {
+      // Shift+click = range selection (only within same page and element)
+      if (e.shiftKey && lastCellClick && lastCellClick.elementIndex === elementIndex && lastCellClick.pageNumber === pageNumber) {
         const startRow = Math.min(lastCellClick.row, row);
         const endRow = Math.max(lastCellClick.row, row);
         const startCol = Math.min(lastCellClick.col, col);
@@ -69,6 +81,7 @@ export default function SelectablePreview({ html, selection, onSelect }) {
 
         onSelect({
           type: 'cell',
+          pageNumber,
           elementIndex,
           startRow,
           endRow,
@@ -77,9 +90,10 @@ export default function SelectablePreview({ html, selection, onSelect }) {
         });
       } else {
         // Single cell selection
-        setLastCellClick({ elementIndex, row, col });
+        setLastCellClick({ pageNumber, elementIndex, row, col });
         onSelect({
           type: 'cell',
+          pageNumber,
           elementIndex,
           startRow: row,
           endRow: row,
@@ -95,6 +109,7 @@ export default function SelectablePreview({ html, selection, onSelect }) {
       setLastCellClick(null);
       onSelect({
         type: 'element',
+        pageNumber,
         elementIndex,
         elementType,
       });

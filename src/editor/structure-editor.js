@@ -9,10 +9,18 @@
  */
 
 export class StructureEditor {
-  constructor(structure) {
+  constructor(structure, pageNumber = 1) {
     // Deep clone to avoid mutating original
     this.structure = JSON.parse(JSON.stringify(structure));
+    this.pageNumber = pageNumber;
     this.history = [];
+  }
+
+  /**
+   * Get the current page based on pageNumber
+   */
+  _getPage() {
+    return this.structure.pages.find((p) => p.pageNumber === this.pageNumber);
   }
 
   /**
@@ -620,7 +628,8 @@ export class StructureEditor {
    * Get table element by index
    */
   _getTable(elementIndex) {
-    const el = this.structure.pages[0]?.elements[elementIndex];
+    const page = this._getPage();
+    const el = page?.elements[elementIndex];
     if (!el || el.type !== 'table') return null;
     return el;
   }
@@ -629,7 +638,8 @@ export class StructureEditor {
    * Get any element by index
    */
   _getElement(elementIndex) {
-    return this.structure.pages[0]?.elements[elementIndex] || null;
+    const page = this._getPage();
+    return page?.elements[elementIndex] || null;
   }
 
   /**
@@ -690,6 +700,7 @@ export class StructureEditor {
    * Get element by index (for inspection)
    */
   getElement(elementIndex) {
-    return this.structure.pages[0]?.elements[elementIndex];
+    const page = this._getPage();
+    return page?.elements[elementIndex];
   }
 }

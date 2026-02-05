@@ -15,19 +15,41 @@ import { EDIT_SYSTEM_PROMPT } from './edit-prompt.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Service account path - same as reconstruction extractor
-const serviceAccountPath = '/Users/ritik/Downloads/internal-operations-461404-316ec7fe1406 (3).json';
+// Service account: from GOOGLE_CREDENTIALS env var (JSON string) or file path
+const SERVICE_ACCOUNT_PATH = process.env.SERVICE_ACCOUNT_PATH || './service-account.json';
+
+// Cache for service account
+let serviceAccount = null;
+
+/**
+ * Get service account data
+ */
+function getServiceAccount() {
+  if (!serviceAccount) {
+    // First try environment variable (for cloud deployments)
+    if (process.env.GOOGLE_CREDENTIALS) {
+      serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    } else {
+      // Fall back to file (for local development)
+      serviceAccount = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf-8'));
+    }
+  }
+  return serviceAccount;
+}
 
 /**
  * Create Gemini client via Vertex AI
  */
 function createGeminiClient() {
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = serviceAccountPath;
+  // Only set GOOGLE_APPLICATION_CREDENTIALS if using file-based auth
+  if (!process.env.GOOGLE_CREDENTIALS) {
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = SERVICE_ACCOUNT_PATH;
+  }
 
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf-8'));
+  const sa = getServiceAccount();
 
   const vertexAI = new VertexAI({
-    project: serviceAccount.project_id,
+    project: sa.project_id,
     location: 'us-central1',
   });
 
@@ -38,10 +60,18 @@ function createGeminiClient() {
  * Build context message for the LLM
  */
 function buildContextMessage(structure, selection, userPrompt) {
-  const selectedElement = structure.pages[0]?.elements[selection.elementIndex];
+  // Find the correct page using pageNumber from selection
+  const pageNumber = selection.pageNumber || 1;
+  const page = structure.pages.find((p) => p.pageNumber === pageNumber);
+
+  if (!page) {
+    throw new Error(`Page ${pageNumber} not found`);
+  }
+
+  const selectedElement = page.elements[selection.elementIndex];
 
   if (!selectedElement) {
-    throw new Error(`Element ${selection.elementIndex} not found`);
+    throw new Error(`Element ${selection.elementIndex} not found on page ${pageNumber}`);
   }
 
   // Get column count for context
@@ -57,7 +87,7 @@ function buildContextMessage(structure, selection, userPrompt) {
 
   return `## Current Structure
 
-Element ${selection.elementIndex} (${selectedElement.type}):${columnInfo}
+Page ${pageNumber}, Element ${selection.elementIndex} (${selectedElement.type}):${columnInfo}
 
 \`\`\`json
 ${JSON.stringify(selectedElement, null, 2)}
@@ -100,7 +130,8 @@ export async function runEditAgent(structure, selection, userPrompt, options = {
     systemInstruction: EDIT_SYSTEM_PROMPT,
   });
 
-  const editor = new StructureEditor(structure);
+  const pageNumber = selection.pageNumber || 1;
+  const editor = new StructureEditor(structure, pageNumber);
   const toolsUsed = [];
   let summary = '';
 

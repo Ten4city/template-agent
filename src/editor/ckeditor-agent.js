@@ -10,18 +10,38 @@ import { VertexAI } from '@google-cloud/vertexai';
 import fs from 'fs';
 import { CKEDITOR_TOOLS, toGeminiFunctionDeclarations, CKEDITOR_SYSTEM_PROMPT } from './ckeditor-tools.js';
 
-// Service account path
-const serviceAccountPath = '/Users/ritik/Downloads/internal-operations-461404-316ec7fe1406 (3).json';
+// Service account: from GOOGLE_CREDENTIALS env var (JSON string) or file path
+const SERVICE_ACCOUNT_PATH = process.env.SERVICE_ACCOUNT_PATH || './service-account.json';
+
+// Cache for service account
+let serviceAccount = null;
+
+/**
+ * Get service account data
+ */
+function getServiceAccount() {
+  if (!serviceAccount) {
+    if (process.env.GOOGLE_CREDENTIALS) {
+      serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    } else {
+      serviceAccount = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf-8'));
+    }
+  }
+  return serviceAccount;
+}
 
 /**
  * Create Gemini client via Vertex AI
  */
 function createGeminiClient() {
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = serviceAccountPath;
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf-8'));
+  if (!process.env.GOOGLE_CREDENTIALS) {
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = SERVICE_ACCOUNT_PATH;
+  }
+
+  const sa = getServiceAccount();
 
   const vertexAI = new VertexAI({
-    project: serviceAccount.project_id,
+    project: sa.project_id,
     location: 'us-central1',
   });
 

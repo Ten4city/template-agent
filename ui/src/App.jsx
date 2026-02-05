@@ -19,8 +19,8 @@ import PageSelection from './components/PageSelection';
 import ProcessingStatus from './components/ProcessingStatus';
 import './App.css';
 
-// API base URL - backend server
-const API_URL = 'http://localhost:3001';
+// API base URL - empty for relative URLs (works both locally and in production)
+const API_URL = '';
 
 function App() {
   const theme = useMantineTheme();
